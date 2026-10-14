@@ -1,4 +1,31 @@
 {
-  "PlayJev": {"url": "https://github.com/OmniJev/PlayJev.git", "commit": "ea3a514d2fcbc0756c36eabe052439db54544542"},
-  "RSI-Jev": {"url": "https://github.com/Shanghua-Gao/RSI-Jev.git", "commit": "fa70834769374c9ef38b41fb3ef7a3a69da26d76"}
+  "PlayJev": {
+    "url": "https://github.com/OmniJev/PlayJev.git",
+    "commit": "ea3a514d2fcbc0756c36eabe052439db54544542",
+    "archive": "upstreams/PlayJev.tar.gz",
+    "paths": [
+      "playjev",
+      "games",
+      "LICENSE",
+      "README.md",
+      "GAMES.md",
+      "requirements.txt"
+    ],
+    "sha256": "04acdaac68aaf603a32b923819f78d21f6111c040d7fb1915e14312b13036b28"
+  },
+  "RSI-Jev": {
+    "url": "https://github.com/Shanghua-Gao/RSI-Jev.git",
+    "commit": "fa70834769374c9ef38b41fb3ef7a3a69da26d76",
+    "archive": "upstreams/RSI-Jev.tar.gz",
+    "paths": [
+      "rsijev",
+      "serve",
+      "LICENSE",
+      "README.md",
+      "pyproject.toml",
+      "requirements.txt",
+      "requirements-repro.txt"
+    ],
+    "sha256": "7238f483d0ef034fcca4f75b561b5ceff529ea5b1300bf36e90ced83b9455eb4"
+  }
 }

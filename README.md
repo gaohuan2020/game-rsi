@@ -36,7 +36,7 @@ python3 scripts/bootstrap.py --train --browser
 
 打开 **http://127.0.0.1:8092**。默认每轮训练 **70 步**，已有运行保持其原始步数。选择模型、游戏和参数后，点击「开始自进化」；控制台会同时启动模型的实时游玩。选择 Teacher / Random 可以只运行教师或随机基线。
 
-安装脚本会恢复 `upstreams.lock.json` 中固定的上游版本，并创建项目自己的 `.venv`。首次加载模型需要访问 Hugging Face，也可以填写本地 checkpoint 路径。模型权重、游戏轨迹和日志均保存在本机。
+安装脚本会校验仓库内 `upstreams/` 的源码快照，恢复 `upstreams.lock.json` 中固定的上游版本，并创建项目自己的 `.venv`。恢复源码无需访问上游 Git 远端，不受上游历史改写影响；也可以用 `python3 scripts/bootstrap.py --sources-only` 单独恢复源码。安装 Python 依赖和 Chromium 仍需下载。首次加载模型需要访问 Hugging Face，也可以填写本地 checkpoint 路径。模型权重、游戏轨迹和日志均保存在本机。
 
 启动 GPU 实验前，确认项目环境能访问 CUDA：
 
@@ -161,7 +161,8 @@ configs/               实验配方
 scripts/               安装与验证工具
 tests/                 数据隔离、晋升、API、实时画面与 Loss 指标测试
 docs/                  验证记录、诊断摘要与控制台截图
-upstreams.lock.json    固定的上游仓库与 commit
+upstreams/             纳入 Git 的上游运行源码、游戏与许可证快照
+upstreams.lock.json    上游仓库、commit、快照包含路径与 SHA-256
 artifacts/jobs/        控制台实验配置、数据、checkpoint 与评估
 artifacts/cli/         CLI 运行记录
 artifacts/champions/   冠军指针与前代谱系

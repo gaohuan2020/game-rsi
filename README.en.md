@@ -35,7 +35,7 @@ python3 scripts/bootstrap.py --train --browser
 
 Open **http://127.0.0.1:8092**. New experiments default to **70 training steps per round**; existing runs retain their recorded steps. Choose a model, game, and recipe, then start evolution. The dashboard also starts live model gameplay. Teacher / Random modes run baseline policies without loading a decision model. Use the language selector in the top bar to switch between Chinese and English.
 
-The bootstrap script restores the upstream commits in `upstreams.lock.json` and creates a local `.venv`. First use downloads model weights from Hugging Face; local checkpoint paths are also supported.
+The bootstrap script verifies the source archives committed in `upstreams/`, restores the versions in `upstreams.lock.json`, and creates a local `.venv`. Source restoration does not contact upstream Git servers and survives rewritten upstream history. Use `python3 scripts/bootstrap.py --sources-only` to restore only the sources. Python dependencies and Chromium still require downloads. First use downloads model weights from Hugging Face; local checkpoint paths are also supported.
 
 Check GPU access before starting a CUDA experiment:
 
@@ -139,7 +139,8 @@ configs/               Reusable recipes
 scripts/               Bootstrap and verification tools
 tests/                 Seed isolation, promotion, API, cancellation, and loss metrics
 docs/                  Validation notes, diagnostic summaries, and screenshots
-upstreams.lock.json    Pinned upstream repositories and commits
+upstreams/             Committed upstream runtime sources, games, and licenses
+upstreams.lock.json    Upstream repositories, commits, included paths, and SHA-256
 artifacts/jobs/        Dashboard jobs, trajectories, checkpoints, and evaluation
 artifacts/cli/         CLI run records
 artifacts/champions/   Champion pointers and lineage

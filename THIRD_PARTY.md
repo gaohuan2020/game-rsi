@@ -1,6 +1,6 @@
 # 上游项目与授权
 
-game-rsi 自有代码采用 MIT。两个上游保留原始目录与授权，未修改上游源码；通过 `upstreams.lock.json` 固定版本，由安装脚本恢复。
+game-rsi 自有代码采用 MIT。两个上游运行所需的源码与资源以快照保存于 `upstreams/`，保留原始目录、许可证及文件内容；通过 `upstreams.lock.json` 记录来源 commit、包含路径和 SHA-256，由安装脚本校验并恢复到 `vendor/`，无需从上游 Git 远端拉取。快照不包含模型权重、生成数据及无关演示站点，详见 [快照说明](upstreams/README.md)。
 
 | 项目 | 使用内容 | 代码授权 |
 | --- | --- | --- |
