@@ -1,0 +1,9 @@
+{
+  "game": "snake", "backend": "rsi",
+  "model": "shgao/rsi-jev-v1.0-qwen3.5-0.8b",
+  "input_mode": "state", "device": "cuda:0",
+  "rounds": 3, "collect_steps": 512, "train_steps": 80,
+  "batch_size": 4, "learning_rate": 0.0001, "tune_tower": false,
+  "eval_episodes": 8, "max_episode_steps": 300,
+  "epsilon": 0.05, "seed": 17, "min_gain": 0.02, "require_ci": true
+}

@@ -1,0 +1,412 @@
+{
+  "date": "2026-10-14",
+  "environment": {
+    "device": "NVIDIA GB10",
+    "torch": "2.14.1+cu130"
+  },
+  "flappy": {
+    "samples": 1536,
+    "entropy": 0.3250829733914482,
+    "label_counts": {
+      "wait": 1367,
+      "flap": 169
+    },
+    "score_range": [
+      0,
+      0
+    ],
+    "episode_lengths": [
+      64
+    ],
+    "nearest_pipe_x_min": 388.889,
+    "rounds": [
+      {
+        "round": 1,
+        "initial_val_loss": 0.325097419321537,
+        "final_val_loss": 0.32508983835577965,
+        "final_kl": 6.864964331443346e-06,
+        "final_agreement": 1.0,
+        "changed_tensors": 25
+      },
+      {
+        "round": 2,
+        "initial_val_loss": 0.32509765680879354,
+        "final_val_loss": 0.32509318739175797,
+        "final_kl": 1.0214000309760607e-05,
+        "final_agreement": 1.0,
+        "changed_tensors": 25
+      },
+      {
+        "round": 3,
+        "initial_val_loss": 0.3250983478501439,
+        "final_val_loss": 0.32509750686585903,
+        "final_kl": 1.4533474410827196e-05,
+        "final_agreement": 1.0,
+        "changed_tensors": 25
+      }
+    ]
+  },
+  "flappy_extended_teacher_rollouts": [
+    {
+      "seed": 10000010,
+      "steps": 180,
+      "at_old_cap": {
+        "score": 0,
+        "next_pipe_x": 388.889
+      },
+      "first_visible_step": 70,
+      "first_score_step": 97,
+      "final_score": 5,
+      "done": false,
+      "target_counts": {
+        "(0.1, 0.9)": 83,
+        "(0.9, 0.1)": 16,
+        "(0.0, 1.0)": 72,
+        "(1.0, 0.0)": 9
+      }
+    },
+    {
+      "seed": 10000011,
+      "steps": 180,
+      "at_old_cap": {
+        "score": 0,
+        "next_pipe_x": 388.889
+      },
+      "first_visible_step": 70,
+      "first_score_step": 97,
+      "final_score": 5,
+      "done": false,
+      "target_counts": {
+        "(0.1, 0.9)": 82,
+        "(0.9, 0.1)": 18,
+        "(0.0, 1.0)": 72,
+        "(1.0, 0.0)": 8
+      }
+    }
+  ],
+  "mario": {
+    "base_model": "OmniJev/PlayJev-0.8B",
+    "parent_checkpoint_sha256": "c9621ec0235255380328bfbe63c7cfac1875e5895d5e4e9f9a5b1eed0623d118",
+    "training_dataset_samples": 384,
+    "validation_dataset_samples": 128,
+    "controlled_experiments": [
+      {
+        "mode": "bf16_replay",
+        "train_scope": "last_two_language_layers",
+        "trainable_parameters": 39908000,
+        "steps": 80,
+        "batch_size": 4,
+        "learning_rate": 1e-05,
+        "train_samples": 384,
+        "dev_samples": 128,
+        "initial_val_loss": 1.2124210724141449,
+        "final_val_loss": 1.2206979212351143,
+        "initial_val_agreement": 0.5625,
+        "final_val_agreement": 0.5390625,
+        "initial_train_panel_loss": 1.2148519232869148,
+        "final_train_panel_loss": 1.2335965931415558,
+        "final_val_kl": 0.6149341515265405,
+        "max_parameter_delta": 0.0003048740327358246
+      },
+      {
+        "mode": "bf16_replay_high_lr",
+        "train_scope": "last_two_language_layers",
+        "trainable_parameters": 39908000,
+        "steps": 80,
+        "batch_size": 4,
+        "learning_rate": 0.0001,
+        "train_samples": 384,
+        "dev_samples": 128,
+        "initial_val_loss": 1.2124210724141449,
+        "final_val_loss": 1.2096754214726388,
+        "initial_val_agreement": 0.5625,
+        "final_val_agreement": 0.5546875,
+        "initial_train_panel_loss": 1.2148519232869148,
+        "final_train_panel_loss": 1.2209529094398022,
+        "final_val_kl": 0.603911651764065,
+        "max_parameter_delta": 0.0027944548055529594
+      },
+      {
+        "mode": "bf16_replay_high_lr",
+        "train_scope": "last_two_language_layers",
+        "trainable_parameters": 39908000,
+        "steps": 160,
+        "batch_size": 16,
+        "learning_rate": 0.0001,
+        "train_samples": 384,
+        "dev_samples": 128,
+        "initial_val_loss": 1.2124210724141449,
+        "final_val_loss": 1.2000506084877998,
+        "initial_val_agreement": 0.5625,
+        "final_val_agreement": 0.5546875,
+        "initial_train_panel_loss": 1.2148519232869148,
+        "final_train_panel_loss": 1.1904527992010117,
+        "final_val_kl": 0.594286838779226,
+        "max_parameter_delta": 0.005332630127668381
+      },
+      {
+        "mode": "bf16_canonical_high_lr",
+        "train_scope": "last_two_language_layers",
+        "trainable_parameters": 39908000,
+        "steps": 160,
+        "batch_size": 16,
+        "learning_rate": 0.0001,
+        "train_samples": 384,
+        "dev_samples": 128,
+        "initial_val_loss": 1.2124210724141449,
+        "final_val_loss": 1.1982512180693448,
+        "initial_val_agreement": 0.5625,
+        "final_val_agreement": 0.5703125,
+        "initial_train_panel_loss": 1.2148519232869148,
+        "final_train_panel_loss": 1.1077405624091625,
+        "final_val_kl": 0.5924874483607709,
+        "max_parameter_delta": 0.006716739386320114
+      },
+      {
+        "mode": "bf16_replay",
+        "train_scope": "language_tower",
+        "trainable_parameters": 498113344,
+        "steps": 80,
+        "batch_size": 4,
+        "learning_rate": 1e-05,
+        "train_samples": 384,
+        "dev_samples": 128,
+        "initial_val_loss": 1.2124210724141449,
+        "final_val_loss": 1.218649182235822,
+        "initial_val_agreement": 0.5625,
+        "final_val_agreement": 0.5625,
+        "initial_train_panel_loss": 1.2148519232869148,
+        "final_train_panel_loss": 0.8831824734807014,
+        "final_val_kl": 0.6128854125272483,
+        "max_parameter_delta": 0.00031494442373514175
+      }
+    ],
+    "fixed_batch_diagnostics": [
+      {
+        "mode": "bf16_fixed",
+        "steps": 30,
+        "batch_size": 4,
+        "dev_samples": 16,
+        "initial_train": {
+          "loss": 1.5960344076156616,
+          "entropy": 0.6795783638954163,
+          "kl": 0.9164560437202454,
+          "agreement": 0.5
+        },
+        "final_train": {
+          "loss": 1.3254163265228271,
+          "entropy": 0.6795783638954163,
+          "kl": 0.6458379626274109,
+          "agreement": 0.25
+        },
+        "initial_dev": {
+          "loss": 1.0995939671993256,
+          "entropy": 0.6476517766714096,
+          "kl": 0.45194219052791595,
+          "agreement": 0.6875
+        },
+        "final_dev": {
+          "loss": 1.1076517701148987,
+          "entropy": 0.6476517766714096,
+          "kl": 0.4599999934434891,
+          "agreement": 0.5625
+        }
+      },
+      {
+        "mode": "fp32_fixed",
+        "steps": 30,
+        "batch_size": 4,
+        "dev_samples": 16,
+        "initial_train": {
+          "loss": 1.5959053039550781,
+          "entropy": 0.6795783638954163,
+          "kl": 0.9163269400596619,
+          "agreement": 0.5
+        },
+        "final_train": {
+          "loss": 1.3259003162384033,
+          "entropy": 0.6795783638954163,
+          "kl": 0.6463219523429871,
+          "agreement": 0.25
+        },
+        "initial_dev": {
+          "loss": 1.0992188602685928,
+          "entropy": 0.6476517766714096,
+          "kl": 0.4515670835971832,
+          "agreement": 0.6875
+        },
+        "final_dev": {
+          "loss": 1.1075656414031982,
+          "entropy": 0.6476517766714096,
+          "kl": 0.45991386473178864,
+          "agreement": 0.5625
+        }
+      },
+      {
+        "mode": "bf16_shuffled",
+        "steps": 30,
+        "batch_size": 4,
+        "dev_samples": 16,
+        "initial_train": {
+          "loss": 1.485459804534912,
+          "entropy": 0.6795783042907715,
+          "kl": 0.8058815002441406,
+          "agreement": 0.5
+        },
+        "final_train": {
+          "loss": 1.070387840270996,
+          "entropy": 0.6795783042907715,
+          "kl": 0.3908095359802246,
+          "agreement": 1.0
+        },
+        "initial_dev": {
+          "loss": 1.0995939671993256,
+          "entropy": 0.6476517766714096,
+          "kl": 0.45194219052791595,
+          "agreement": 0.6875
+        },
+        "final_dev": {
+          "loss": 1.2388335168361664,
+          "entropy": 0.6476517766714096,
+          "kl": 0.5911817401647568,
+          "agreement": 0.625
+        }
+      },
+      {
+        "mode": "bf16_fixed_high_lr",
+        "steps": 30,
+        "batch_size": 4,
+        "dev_samples": 16,
+        "initial_train": {
+          "loss": 1.5960344076156616,
+          "entropy": 0.6795783638954163,
+          "kl": 0.9164560437202454,
+          "agreement": 0.5
+        },
+        "final_train": {
+          "loss": 0.6851984262466431,
+          "entropy": 0.6795783638954163,
+          "kl": 0.005620062351226807,
+          "agreement": 1.0
+        },
+        "initial_dev": {
+          "loss": 1.0995939671993256,
+          "entropy": 0.6476517766714096,
+          "kl": 0.45194219052791595,
+          "agreement": 0.6875
+        },
+        "final_dev": {
+          "loss": 1.8467847108840942,
+          "entropy": 0.6476517766714096,
+          "kl": 1.1991329342126846,
+          "agreement": 0.375
+        }
+      }
+    ]
+  },
+  "data_integrity": {
+    "all_frames_exist": true,
+    "action_order_matches_options": true,
+    "targets_finite_and_normalized": true,
+    "teacher_index_matches_target": true,
+    "seed_split_disjoint": true
+  },
+  "findings": {
+    "flappy": "loss 已接近软标签熵下限，并且采样每局仅 64 步，未覆盖管道进入画面后的场景。",
+    "mario": "最后两层训练在当前预算下适应有限；扩大语言主干训练可以显著降低训练集损失，但没有改善验证集，已确认存在泛化问题。",
+    "mario_unresolved": "短轨迹与地图覆盖、单帧图像与教师内部状态/历史之间的信息差，可能影响泛化；本次没有分别量化它们的贡献。"
+  },
+  "limitations": [
+    "Mario controls use one local parent and one existing dataset. They do not establish improved game scores.",
+    "The seeded probe sampling sequence differs from the historical run; paired probe arms use the same sequence.",
+    "Fixed-batch diagnostics use 4 train examples and 16 validation examples; replay and tower comparisons use all 128 validation examples.",
+    "Batch-16 experiments change both batch size and training steps. The canonical/shuffled batch-16 pair differs only in option ordering.",
+    "This repository contains a numerical summary. Original trajectories and trained checkpoints remain local and are not included."
+  ],
+  "flappy_extended_collection_experiment": {
+    "date": "2026-10-14",
+    "config": {
+      "game": "flappy",
+      "backend": "playjev",
+      "model": "OmniJev/PlayJev-0.8B",
+      "device": "cuda:0",
+      "rounds": 1,
+      "collect_steps": 2400,
+      "train_steps": 80,
+      "batch_size": 4,
+      "learning_rate": 1e-05,
+      "tune_tower": false,
+      "epsilon": 0.05,
+      "teacher_mix": 0.25,
+      "eval_episodes": 8,
+      "max_episode_steps": 300,
+      "seed": 17,
+      "min_gain": 0.02,
+      "require_ci": true,
+      "replay_limit": 8192,
+      "delay_ms": 0,
+      "display_fps": 30,
+      "actor": "model",
+      "input_mode": "pixels"
+    },
+    "status": "completed",
+    "training": {
+      "initial": {
+        "val_loss": 0.21024167851328457,
+        "agreement": 0.9921875,
+        "val_target_entropy": 0.19843323365785182,
+        "val_kl": 0.011808444855432754
+      },
+      "final": {
+        "val_loss": 0.2103889105678718,
+        "agreement": 0.9921875,
+        "val_target_entropy": 0.19843323365785182,
+        "val_kl": 0.011955676910019974
+      },
+      "train_samples": 2027,
+      "dev_samples": 128,
+      "steps": 80,
+      "reload_parity": true
+    },
+    "evaluation": {
+      "baseline": 11.625,
+      "candidate": 11.625,
+      "delta": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "baseline_scores": [
+        13.0,
+        13.0,
+        5.0,
+        13.0,
+        13.0,
+        10.0,
+        13.0,
+        13.0
+      ],
+      "candidate_scores": [
+        13.0,
+        13.0,
+        5.0,
+        13.0,
+        13.0,
+        10.0,
+        13.0,
+        13.0
+      ],
+      "seeds": [
+        90001088,
+        90001089,
+        90001090,
+        90001091,
+        90001092,
+        90001093,
+        90001094,
+        90001095
+      ],
+      "passed": false
+    }
+  }
+}

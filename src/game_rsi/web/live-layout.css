@@ -1,0 +1,65 @@
+/* Live play owns the larger part of the workspace. */
+.workspace {grid-template-columns:minmax(0,1.9fr) minmax(300px,1fr)}
+.game-screen {aspect-ratio:16/10;min-height:430px;max-height:none}
+.game-view-controls {display:flex;align-items:center;gap:9px}
+.game-view-controls button {font-size:10px;padding:7px 9px}
+.game-panel,.train-panel {min-width:0}
+.game-panel .action-bars {grid-template-columns:repeat(3,minmax(0,1fr));min-height:84px}
+.game-panel:fullscreen {width:100%;height:100%;border:0;border-radius:0;background:var(--bg);overflow:auto}
+.game-panel:fullscreen .game-screen {height:calc(100dvh - 245px);min-height:180px;aspect-ratio:auto;margin:8px 18px 0}
+.game-panel:fullscreen .action-bars {grid-template-columns:repeat(7,minmax(0,1fr));min-height:50px}
+.game-panel:fullscreen .panel-heading {min-height:52px}
+@media(max-width:1250px) {
+  .workspace {grid-template-columns:minmax(0,1.65fr) minmax(290px,1fr)}
+  .game-screen {min-height:365px}
+  .game-panel .action-bars {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .game-view-controls {gap:5px}
+  .train-panel .panel-heading {gap:5px;padding:16px 12px}
+  .train-panel .pipeline {padding:22px 12px}
+}
+@media(max-width:1040px) {
+  .workspace {grid-template-columns:1fr}
+  .game-screen {min-height:360px;max-height:none;aspect-ratio:16/10}
+}
+@media(max-width:700px) {
+  .game-screen {min-height:260px}
+  .game-view-controls select {max-width:95px}
+  .game-view-controls button {padding:6px;font-size:9px}
+  .game-panel:fullscreen .action-bars {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+.comparison-context {padding:16px 22px 0;font-size:10px;color:var(--muted)}
+.round-comparisons {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(290px,100%),1fr));gap:14px;padding:16px 22px 22px;min-width:0}
+.comparison-empty {grid-column:1/-1;color:var(--muted);font-size:11px;margin:10px 0}
+.round-comparison {min-width:0;padding:18px;border:1px solid var(--border);border-radius:7px;background:#151d1c}
+.comparison-title {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:20px}
+.comparison-title strong {font-size:12px;font-weight:500}
+.comparison-score {display:grid;grid-template-columns:70px minmax(0,1fr) 64px;align-items:center;gap:9px;margin:14px 0;font-size:10px;color:var(--muted)}
+.comparison-score strong {text-align:right;font:12px ui-monospace,monospace;color:var(--ink)}
+.comparison-track {height:7px;background:#293534;border-radius:3px;overflow:hidden}
+.comparison-track>div {height:100%;background:#748d8a;border-radius:3px}
+.comparison-score.candidate .comparison-track>div {background:var(--accent)}
+.comparison-gain {margin-top:18px;font:11px ui-monospace,monospace}
+.comparison-ci {font:10px ui-monospace,monospace;color:var(--muted);margin:10px 0 0}
+.comparison-details {margin-top:15px;color:var(--muted);font-size:10px}
+.comparison-details summary {cursor:pointer}
+.comparison-details table {margin-top:10px}
+.comparison-details th,.comparison-details td {padding:8px;font-size:9px}
+@media(max-width:700px) {
+  .round-comparisons {padding:14px 16px 18px}
+  .comparison-context {padding:14px 16px 0}
+  .round-comparison {padding:14px}
+}
+
+#language-select {width:auto;font-size:11px;padding:6px 8px}
+.breadcrumb {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.header-right {flex-shrink:0}
+html[lang="en"] .action-row {grid-template-columns:65px minmax(0,1fr) 35px}
+html[lang="en"] .chart-tabs {gap:9px}
+html[lang="en"] .chart-tabs button {font-size:9px}
+html[lang="en"] .comparison-score {grid-template-columns:85px minmax(0,1fr) 60px;font-size:9px}
+@media(max-width:700px) {
+  .header-right {gap:8px}
+  #language-select {font-size:10px;padding:5px}
+  html[lang="en"] .panel-heading {flex-wrap:wrap}
+}

@@ -1,0 +1,9 @@
+{
+  "game": "snake", "backend": "playjev",
+  "model": "Qwen/Qwen3.5-0.8B-Base", "input_mode": "pixels",
+  "device": "cuda:0", "rounds": 1,
+  "collect_steps": 32, "train_steps": 2, "batch_size": 1,
+  "learning_rate": 0.00001, "tune_tower": false,
+  "eval_episodes": 2, "max_episode_steps": 10,
+  "epsilon": 0.05, "seed": 17, "min_gain": 0.02, "require_ci": true
+}

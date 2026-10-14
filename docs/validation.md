@@ -1,0 +1,78 @@
+# 本机验证记录
+
+本文记录本机运行结果；原始 `artifacts/`、轨迹和已训练 checkpoint 默认不提交 Git。仓库中的数值摘要可用于了解实验条件，重新运行需要安装依赖、下载模型并生成自己的数据。
+
+2026-10-13，NVIDIA GB10，Python 3.12.3，torch 2.14.1+cu130，transformers 5.17.0，torchvision 0.29.1+cu130，accelerate 1.15.0，Playwright 1.63.0。使用 PyTorch 的 reference DeltaNet kernel，未安装 FLA。
+
+## 软件与游戏
+
+- 11 项测试通过：episode/seed 隔离、概率与非法输入、配对晋升、取消、API、跨来源控制、增量日志、自动输入模式冠军匹配。
+- 十个游戏通过 Chromium reset/step/frame 与教师分布检查。详见 `artifacts/qa/games-report.json`。
+- 桌面 1512px 与手机 390px 的浏览器检查通过，无 JavaScript page error、无手机横向溢出。截图与报告在 `artifacts/qa/`。
+- 上游源码未修改，两个 commit 固定在 `upstreams.lock.json`。
+
+## RSI-Jev 实际改进
+
+模型 `shgao/rsi-jev-v1.0-qwen3.5-0.8b`，结构化状态输入，Snake；训练 1,024 帧、250 optimizer steps、batch 8、lr 0.001，50% 采样局允许教师引导，只更新原生 scorer（7,348,225 参数）。评估每局最多 300 steps，使用相同的八个预注册 seed。
+
+| 轮次 | 冠军平均分 | 候选平均分 | 配对增益 CI95 | 决定 |
+| --- | ---: | ---: | --- | --- |
+| 1 | 1.0 | 26.5 | [16.25, 35.875] | 晋升 |
+| 2 | 26.5 | 1.0 | [-35.875, -16.25] | 拒绝，保留首轮冠军 |
+
+首轮逐局得分：冠军 `[1,1,1,1,1,1,1,1]`，候选 `[21,16,26,11,45,11,31,51]`。首轮验证 loss 1.1623 → 0.8318，教师一致率 40.6% → 58.6%。权重 probe 确认发生变化，checkpoint 重载 logits 校验通过。
+
+这也验证了失败回退：继续训练可以退步，系统不会因为 loss 更新或训练结束就替换现有冠军。
+
+完整注册、数据、训练与评估记录：
+
+```text
+artifacts/jobs/20261013-103226-7646db70/
+  rounds/001/experiment.json
+  rounds/001/checkpoint/training.json
+  rounds/001/evaluation.json
+  rounds/002/evaluation.json
+```
+
+保留的本地冠军：
+
+```text
+artifacts/jobs/20261013-103226-7646db70/rounds/001/checkpoint
+sha256: 61e7032c5beddf80ac8c479b0b59483161a6ee2262cb53a32992df3581a1934c
+```
+
+默认 RSI-Jev `auto` 输入模式能解析缓存元数据并复用这一冠军，和显式 `state` 模式共享指针。
+
+随后固定冠军，在未参与训练或选冠军的另一组八个 seed 上进行只读评估，平均分仍为 **1.0 → 26.5**，配对增益 CI95 **[17.125, 34.0]**。候选逐局 `[16,12,44,15,36,21,46,22]`，每局最多 300 steps。新面板既不训练也不用于替换冠军，报告在 `artifacts/qa/fresh-panel/report.json`。
+
+## PlayJev 像素训练
+
+使用真正的发布模型 `OmniJev/PlayJev-0.8B`，输入为真实游戏截图。32 帧、2 optimizer steps，仅训练最后两个语言层（39,908,000 参数）。反向传播、参数变化、HF checkpoint 保存、重载 logits 校验、候选游戏评估均通过。
+
+两局、每局 10 steps 的小预算管线验证中，平均分 3.0 → 3.0，未晋升。此验证不证明像素游戏能力提高。详见 `artifacts/jobs/20261013-111109-c535f0dd/rounds/001/`。
+
+## 结果边界
+
+RSI 与 PlayJev 使用不同的输入合同，分数不可视作两模型的公平对比。上述 RSI 提升是 Snake 特定设置下的结果，不代表通用 Jev 能力。首次 8-seed 面板同时用于选冠军；单独的新种子只读评估由 `scripts/verify_champion.py` 产生，保存在 `artifacts/qa/fresh-panel/report.json`。
+
+## 实时游玩优化
+
+新增独立 MJPEG 画面流与真实中间帧捕获，播放时并行计算下一步动作，默认去掉固定 80ms 等待。模型使用的终态和动作合同保持一致：8 次相同动作，Mario 捕获 24 帧（23 个不同图像），Floppy Bird 捕获 27 帧（26 个不同图像）；终态与原始截图字节校验一致。
+
+缓存预热后，真实 HTTP 视频流实测：Mario 22.79–23.55 FPS，Floppy Bird 32.90–33.99 FPS。同一个常驻 worker 内切换至首帧约 0.11–0.33 秒，PID 保持不变。首次使用不同 checkpoint 仍需加载模型，不能把缓存命中时的速度当作冷启动速度。
+
+游戏区与训练栏在 1512px 桌面下宽度分别为 753px、395px；下拉框热切换、桌面与手机布局检查通过，无 JavaScript page error。14 项测试通过。记录在 `artifacts/qa/live-performance.json`、`live-frame-parity.json`、`live-desktop.png` 与 `live-mobile.png`。
+
+## 2026-10-14 Loss / KL 检查
+
+在同一台 GB10 上完成像素训练对照。软标签 `[0.9, 0.1]` 的交叉熵下限为 0.325083，原 Flappy 实验验证 KL 已接近零。旧采样每局只到 64 步，管道尚未进入截图；两个教师长轨迹在第 70 步见到管道、第 97 步首次得分。因此新增 `configs/playjev-flappy-learning.json`，每轮采样 2400 帧、每局最多 300 步。
+
+Mario 使用同一个本地已晋升 checkpoint、384 帧训练数据与 128 帧验证数据。仅改变训练范围，在相同 batch、学习率、步数和采样序列下，扩大语言主干训练能将固定 64 帧训练样本 loss 从 1.2149 降至 0.8832，但验证 loss 从 1.2124 变为 1.2186。固定小批次拟合、FP32 / BF16、学习率、batch 和选项顺序的对照均确认权重更新正常，当前泛化仍有瓶颈。这些对照没有更新冠军，也没有证明游戏得分提高。
+
+详细实验数值见 [Loss 诊断摘要](loss-diagnosis.json)。训练新增 `target_entropy` / `kl`，验证新增 `val_target_entropy` / `val_kl`，控制台展示标签熵与剩余 KL。16 项测试通过，包含零概率与混合不确定性标签的熵计算；桌面和手机浏览器检查通过。
+
+## 2026-10-14 Flappy 完整实验与控制台更新
+
+使用 `configs/playjev-flappy-learning.json`，在 GB10 上完成 2400 帧采样、80 步训练、8-seed 配对评估。管道场景已覆盖，checkpoint 重载校验通过；冠军和候选平均分均为 11.625，配对增益 CI95 为 [0, 0]，未晋升。训练及逐局评估数值见 [诊断摘要](loss-diagnosis.json)。
+
+新增中文 / 英文切换及语言偏好记忆；每轮成绩面板显示冠军与候选均分、配对增益、置信区间和可展开的逐局得分。切换游戏会请求停止当前训练 / RSI；停止标记适用于加载、采样、训练、保存、评估阶段，同游戏切换 actor 不取消训练。24 项后端测试通过，浏览器检查通过中英文文案、语言记忆、手机无横向溢出、配对成绩与无实时游玩时的切换请求。
