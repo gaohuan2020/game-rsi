@@ -33,6 +33,11 @@ async def main():
             state['play']={'job':{'id':'new-play','kind':'play','status':'running','phase':'loading','config':data},'frame':None,'events':[]}
             response={'id':'new-play','switched':True,'stopped_evolution_ids':['evolution-fixture']}
             await route.fulfill(json=response)
+        elif '/api/games/' in request.url and request.url.endswith('/comparisons'):
+            game=request.url.split('/')[-2]
+            d=state.get('evolution')
+            runs=[{'job':d['job'],'evaluations':[e for e in d['events'] if e['kind']=='evaluation']}] if d and d['job']['game']==game else []
+            await route.fulfill(json={'game':game,'runs':runs})
         elif request.url.endswith('/api/events'):
             await route.fulfill(content_type='text/event-stream',body='event: snapshot\ndata: '+json.dumps(state)+'\n\n')
         elif request.url.endswith('/api/state'):
@@ -50,13 +55,13 @@ async def main():
         assert '26.50' in await page.locator('.round-comparison').nth(0).inner_text()
         assert '+25.50' in await page.locator('.comparison-gain').nth(0).inner_text()
         assert '-25.50' in await page.locator('.comparison-gain').nth(1).inner_text()
-        await page.locator('.comparison-details summary').first.click()
+        await page.locator('.round-details-toggle').first.click()
         assert await page.locator('.comparison-details').first.locator('tbody tr').count()==2
         assert '90001088' in await page.locator('.comparison-details').first.inner_text()
         await page.select_option('#language-select','en')
         assert await page.locator('html').get_attribute('lang')=='en'
         assert await page.locator('.experiment-panel h2').inner_text()=='Scores by evolution round'
-        assert 'Champion mean' in await page.locator('.round-comparison').first.inner_text()
+        assert 'Before training' in await page.locator('.comparison-table > thead').inner_text()
         visible_chinese=await page.evaluate("/[\\u4e00-\\u9fff]/.test(document.body.innerText.replace('中文',''))")
         assert not visible_chinese, await page.locator('body').inner_text()
         for width in (1512,390):
@@ -65,10 +70,11 @@ async def main():
         await page.reload(wait_until='domcontentloaded')
         await page.wait_for_selector('.round-comparison')
         assert await page.locator('#language-select').input_value()=='en'
-        assert 'Candidate mean' in await page.locator('.round-comparison').first.inner_text()
+        assert await page.locator('#sidebar').is_visible()
+        assert 'After training' in await page.locator('.comparison-table > thead').inner_text()
         await page.select_option('#language-select','zh-CN')
         assert await page.locator('.experiment-panel h2').inner_text()=='每轮进化成绩对比'
-        assert '候选平均分' in await page.locator('.round-comparison').first.inner_text()
+        assert '训练后平均分' in await page.locator('.comparison-table > thead').inner_text()
         assert not mutations, 'Changing language must not start or stop any task'
         state['play']=None
         state['evolution']['job'].update(status='running',phase='training')
@@ -77,7 +83,7 @@ async def main():
         await page.select_option('#game','mario')
         await page.wait_for_function("document.getElementById('toast').textContent.includes('Stopping the previous')")
         assert len(mutations)==1 and mutations[0]['data']['game']=='mario'
-        assert await page.locator('#run-state').inner_text()=='Experiment finished'
+        assert await page.locator('#run-state').inner_text()=='Waiting for an experiment'
         await browser.close()
     report={'page_errors':errors,'languages':['zh-CN','en'],'round_comparison':True,'paired_scores':True,
             'language_persistence':True,'mobile_overflow':False,'game_switch_without_live_worker':True}

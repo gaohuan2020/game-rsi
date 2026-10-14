@@ -15,8 +15,10 @@ It combines [PlayJev](https://github.com/OmniJev/PlayJev) game environments, tea
 - Teacher correction with separate training, validation, and game-evaluation seed namespaces.
 - Matched-seed comparisons between champion and candidate, with score-gain, bootstrap confidence, and regression gates.
 - Separate training and gameplay workers, cached-model game switching, historical experiments, and cancellation. Switching games requests cancellation of ongoing training and RSI evolution.
-- Chinese and English interfaces with persisted language preference. Round comparisons show mean scores, paired gains, confidence intervals, and expandable per-episode results.
+- Chinese and English interfaces with persisted language preference. A table accumulates scores before and after training across all experiments for the selected game, with paired gains, confidence intervals, and expandable episode details. Switching games restores that game’s training history or clears the panel if none exists.
 - MJPEG live video and actual intermediate animation frames for Mario and Floppy Bird. The default display target is 30 FPS; observed performance depends on the model and hardware.
+
+Each round and new experiment starts from the most recently promoted weights for the same game, parent model, and input contract. Rejected candidates keep their score records; later training continues from the approved model. After experiment data is cleared, training starts from the selected base model.
 
 Training imitates teacher action distributions. Game rewards are used for evaluation and promotion. The experiment loop adjusts its recipe; this version does not include a research agent that rewrites project code.
 
@@ -31,7 +33,7 @@ python3 scripts/bootstrap.py --train --browser
 .venv/bin/game-rsi serve --port 8092
 ```
 
-Open **http://127.0.0.1:8092**. Choose a model, game, and recipe, then start evolution. The dashboard also starts live model gameplay. Teacher / Random modes run baseline policies without loading a decision model. Use the language selector in the top bar to switch between Chinese and English.
+Open **http://127.0.0.1:8092**. New experiments default to **70 training steps per round**; existing runs retain their recorded steps. Choose a model, game, and recipe, then start evolution. The dashboard also starts live model gameplay. Teacher / Random modes run baseline policies without loading a decision model. Use the language selector in the top bar to switch between Chinese and English.
 
 The bootstrap script restores the upstream commits in `upstreams.lock.json` and creates a local `.venv`. First use downloads model weights from Hugging Face; local checkpoint paths are also supported.
 
@@ -109,7 +111,7 @@ The separate contributions of trajectory / map coverage and missing temporal inf
 
 A local RSI Snake experiment improved mean score **1.0 → 26.5**, with paired gain CI95 **[16.25, 35.875]**, and promoted the first candidate. A subsequent candidate regressed to 1.0 and was rejected. A separate eight-seed panel not used for training or champion selection also scored **1.0 → 26.5**.
 
-These results concern one game, structured-state input, and a specific recipe. Pixel checkpoint saving, reload parity, and evaluation were also validated; smoke runs do not establish improved gameplay. There are **24 passing local tests**, plus desktop/mobile browser checks for both languages and round comparisons. Conditions and historical results are recorded in [validation notes](docs/validation.md).
+These results concern one game, structured-state input, and a specific recipe. Pixel checkpoint saving, reload parity, and evaluation were also validated; smoke runs do not establish improved gameplay. There are **26 passing local tests**, plus desktop/mobile browser checks for both languages and round comparisons. Conditions and historical results are recorded in [validation notes](docs/validation.md).
 
 ```bash
 .venv/bin/python -m pytest -q
@@ -118,6 +120,8 @@ These results concern one game, structured-state input, and a specific recipe. P
 # Requires the dashboard on port 8092
 .venv/bin/python scripts/verify_browser.py
 .venv/bin/python scripts/verify_ui.py
+.venv/bin/python scripts/verify_game_training.py
+.venv/bin/python scripts/verify_loss_chart.py
 .venv/bin/python scripts/verify_cycle.py --smoke
 .venv/bin/python scripts/verify_cycle.py --config configs/playjev-release-smoke.json
 
@@ -125,7 +129,7 @@ These results concern one game, structured-state input, and a specific recipe. P
 .venv/bin/python scripts/verify_champion.py
 ```
 
-`verify_ui.py` mocks browser API responses to verify language persistence, paired scores, mobile layout, and game-switch requests without starting GPU tasks. A run's evaluation panel selects champions; final performance claims should use another seed panel.
+`verify_ui.py` mocks browser API responses to verify language persistence, paired scores, mobile layout, and game-switch requests without starting GPU tasks. `verify_game_training.py` checks restoration of each game’s latest training, empty views for games without records, and isolation of delayed history responses during rapid switching, cumulative scores across experiments, appended rounds, and restoration after reload. `verify_loss_chart.py` checks logged validation values, coordinates for 70-step rounds, hover selection, round boundaries, and validation-only scaling. A run's evaluation panel selects champions; final performance claims should use another seed panel.
 
 ## Repository layout
 

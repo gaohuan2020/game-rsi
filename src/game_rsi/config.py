@@ -33,7 +33,7 @@ class RunConfig(BaseModel):
     device: str = "cuda:0"
     rounds: int = Field(3, ge=1, le=30)
     collect_steps: int = Field(512, ge=32, le=100000)
-    train_steps: int = Field(80, ge=1, le=20000)
+    train_steps: int = Field(70, ge=1, le=20000)
     batch_size: int = Field(4, ge=1, le=64)
     learning_rate: float = Field(0.0001, ge=0.0000001, le=0.01)
     tune_tower: bool = False

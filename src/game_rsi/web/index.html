@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/static/style.css"><link rel="stylesheet" href="/static/live-layout.css"><script src="/static/i18n.js" defer></script><script src="/static/app.js" defer></script>
 </head>
 <body>
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <a class="brand" href="/"><span class="brand-icon">g<span>↗</span></span><span>game<span class="brand-rsi">/rsi</span><small>自进化实验室</small></span></a>
     <div class="nav-label">WORKSPACE</div><div class="nav-active"><span>◈</span> 实验控制台 <span class="live-dot"></span></div>
     <form id="config-form">
@@ -16,7 +16,7 @@
       <label>模型后端<select id="backend" name="backend"><option value="rsi">RSI-Jev · 原生决策头</option><option value="playjev">PlayJev · 像素动作模型</option></select></label>
       <label>本地 checkpoint / Hugging Face ID<input id="model" name="model" type="text" spellcheck="false" value="shgao/rsi-jev-v1.0-qwen3.5-0.8b" required></label>
       <label>输入方式<select id="input_mode" name="input_mode"><option value="auto">自动检测模型能力</option><option value="state">结构化游戏状态</option><option value="pixels">游戏截图 / 像素</option></select></label>
-      <div class="field-pair"><label>进化轮数<input name="rounds" type="number" min="1" max="30" value="3" required></label><label>每轮训练步数<input name="train_steps" type="number" min="1" max="20000" value="80" required></label></div>
+      <div class="field-pair"><label>进化轮数<input name="rounds" type="number" min="1" max="30" value="3" required></label><label>每轮训练步数<input name="train_steps" type="number" min="1" max="20000" value="70" required></label></div>
       <div class="field-pair"><label>采样帧数<input name="collect_steps" type="number" min="32" max="100000" value="512" required></label><label>评估局数<input name="eval_episodes" type="number" min="2" max="64" value="8" required></label></div>
       <details class="advanced"><summary>训练与评估参数 <span>⌄</span></summary>
         <div class="field-pair"><label>Batch size<input name="batch_size" type="number" min="1" max="64" value="4" required></label><label>学习率<input name="learning_rate" type="number" step="any" min="0.0000001" max="0.01" value="0.0001" required></label></div>
@@ -51,16 +51,28 @@
           <div class="game-footer"><span id="input-badge">输入模式：等待模型加载</span><span id="action-name">ACTION —</span></div>
         </article>
         <article class="panel train-panel">
-          <div class="panel-heading"><div><span class="section-index">02 /</span><h2>RSI 训练过程</h2></div><span class="pill" id="round-label">ROUND —</span></div>
+          <div class="panel-heading"><div><span class="section-index">02 /</span><h2>RSI 训练过程</h2></div><div class="training-history"><label for="history-select">训练记录</label><select id="history-select" aria-label="选择历史实验"><option value="latest">当前实验</option></select></div></div>
           <div class="pipeline" id="pipeline"><div data-phase="collecting"><span>1</span>采样</div><i>→</i><div data-phase="training"><span>2</span>训练</div><i>→</i><div data-phase="evaluating"><span>3</span>评估</div><i>→</i><div data-phase="promoted"><span>4</span>晋升</div></div>
-          <div class="phase-description"><div><span class="status-led" id="phase-led"></span><strong id="phase-title">等待启动实验</strong></div><span id="phase-progress">0%</span></div><div class="progress-track"><div id="progress-fill"></div></div><p class="phase-note" id="phase-note">每轮先预注册实验，再采样、更新权重和评估候选模型。</p>
+          <div class="phase-description"><div><span class="status-led" id="phase-led"></span><strong id="phase-title">等待启动实验</strong></div><span class="pill" id="round-label">ROUND —</span><span id="phase-progress">0%</span></div><div class="progress-track"><div id="progress-fill"></div></div><p class="phase-note" id="phase-note">每轮先预注册实验，再采样、更新权重和评估候选模型。</p>
           <div class="chart-heading"><div class="chart-tabs" role="tablist" aria-label="指标曲线"><button role="tab" id="loss-tab" aria-selected="true" class="selected">训练损失</button><button role="tab" id="score-tab" aria-selected="false">游戏评估</button></div><span id="chart-legend">● Train　<span>● Validation</span></span></div>
+          <div class="loss-chart-controls" id="loss-chart-controls"><div class="loss-series" role="group" aria-label="选择损失曲线"><button type="button" data-loss-series="both" aria-pressed="true">全部</button><button type="button" data-loss-series="train" aria-pressed="false">训练</button><button type="button" data-loss-series="validation" aria-pressed="false">验证</button></div><span id="validation-summary">验证 —</span></div>
           <div class="chart-wrap"><svg id="chart" viewBox="0 0 560 210" role="img" aria-label="真实训练损失随步数的变化"></svg><div class="empty-chart" id="empty-chart">尚无数据<p>曲线由实际训练日志实时生成</p></div><div class="chart-tooltip" id="chart-tooltip" hidden></div></div>
+          <p class="loss-chart-caption" id="loss-chart-caption">累计训练步数 · 纵轴自动缩放 · 验证仅绘制记录点</p>
           <div class="training-stats"><div><span>采样记录</span><strong id="sample-count">—</strong></div><div><span>教师一致率</span><strong id="agreement">—</strong></div><div><span>GPU 分配内存</span><strong id="gpu-memory">—</strong></div></div>
           <div class="gate-box"><div><span class="gate-icon">◇</span><strong>冠军晋升门槛</strong><span id="gate-status">等待评估</span></div><p id="gate-description">超过预设得分增益、通过置信区间和退步检查后，才自动切换冠军。</p></div>
         </article>
       </section>
-      <section class="panel experiment-panel"><div class="panel-heading"><div><span class="section-index">03 /</span><h2>每轮进化成绩对比</h2></div><select id="history-select" aria-label="选择历史实验"><option value="latest">当前实验</option></select></div><div class="comparison-context" id="comparison-context">完成每轮评估后更新</div><div class="round-comparisons" id="round-comparisons"><p class="comparison-empty">每轮评估完成后，显示冠军与候选的得分对比、配对增益和逐局成绩。</p></div><div class="table-scroll"><table><thead><tr><th>轮次 / 状态</th><th>冠军得分</th><th>候选得分</th><th>配对增益</th><th>95% CI</th><th>Checkpoint</th></tr></thead><tbody id="experiments"><tr><td colspan="6" class="empty-table">每一个成功或失败的实验，都在这里留下记录。</td></tr></tbody></table></div></section>
+      <section class="panel experiment-panel">
+        <div class="panel-heading"><div><span class="section-index">03 /</span><h2>每轮进化成绩对比</h2></div><span class="comparison-current-game" id="comparison-game-label">当前游戏</span></div>
+        <div class="table-scroll comparison-table-scroll">
+          <table class="comparison-table">
+            <caption class="visually-hidden">当前游戏每轮训练前后的配对评估成绩</caption>
+            <colgroup><col class="round-col"><col class="run-col"><col class="score-col"><col class="score-col"><col class="gain-col"><col class="ci-col"><col class="result-col"><col class="details-col"></colgroup>
+            <thead><tr><th scope="col">累计轮次</th><th scope="col">进化实验</th><th scope="col" class="numeric">训练前平均分</th><th scope="col" class="numeric">训练后平均分</th><th scope="col" class="numeric">配对增益</th><th scope="col">95% CI</th><th scope="col">评估结果</th><th scope="col"><span class="visually-hidden">逐局明细</span></th></tr></thead>
+            <tbody id="round-comparisons"><tr><td colspan="8" class="comparison-empty">此游戏暂无训练记录，开始自进化后显示训练过程。</td></tr></tbody>
+          </table>
+        </div>
+      </section>
       <section class="panel log-panel"><div class="panel-heading"><div><span class="section-index">04 /</span><h2>运行日志</h2><span class="pill">LIVE</span></div><button class="text-button" id="log-toggle">查看原始日志 ↗</button></div><div class="event-log" id="event-log"><p class="muted">等待任务启动。所有指标来自本地训练与游戏进程。</p></div><pre class="raw-log" id="raw-log" hidden></pre></section>
       <footer class="page-footer"><span>GAME RSI <span class="separator">/</span> 可观测、可复现的游戏学习闭环</span><span>真实轨迹 · 真实权重 · 配对评估</span></footer>
     </div>

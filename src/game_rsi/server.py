@@ -44,6 +44,7 @@ class Manager:
             raise RuntimeError("A game-rsi server already owns this artifacts directory") from error
         self.processes = {}
         self.event_cache = {}
+        self.comparison_cache = {}
         self.active_play_id = None
         self.mutex = threading.RLock()
         # Recover only our own worker processes, verified by command and creation time.
@@ -243,6 +244,42 @@ class Manager:
                 "frame": read_json(directory / "frame.json"),
                 "logs": logs.read_text(errors="replace")[-12000:] if logs.exists() else ""}
 
+    def comparisons(self, game):
+        """Read every experiment for a game, independent of the recent-jobs limit."""
+        with self.mutex:
+            runs = []
+            for directory in self.jobs_dir.iterdir():
+                meta = read_json(directory / "job.json", {})
+                if (meta.get("kind") != "evolve"
+                        or (meta.get("game") or meta.get("config", {}).get("game")) != game):
+                    continue
+                path = directory / "events.jsonl"
+                cache = self.comparison_cache.setdefault(directory.name, {"offset": 0, "evaluations": {}})
+                if not path.exists() or path.stat().st_size < cache["offset"]:
+                    cache.update(offset=0, evaluations={})
+                if path.exists():
+                    with path.open("rb") as stream:
+                        stream.seek(cache["offset"])
+                        for line in stream:
+                            # A concurrent append may not have finished its last JSON line yet.
+                            if not line.endswith(b"\n"):
+                                break
+                            cache["offset"] += len(line)
+                            with contextlib.suppress(ValueError, TypeError):
+                                event = json.loads(line)
+                                if isinstance(event, dict) and event.get("kind") == "evaluation":
+                                    # Replayed observations replace their round, rather than duplicating it.
+                                    cache["evaluations"][event.get("round", 1)] = event
+                state = read_json(directory / "state.json", {})
+                job = {**meta, **state}
+                summary = {key: job[key] for key in ("id", "kind", "backend", "created_at", "status", "phase", "round")
+                           if key in job}
+                summary["game"] = game
+                runs.append({"job": summary,
+                             "evaluations": sorted(cache["evaluations"].values(), key=lambda e: e.get("round", 1))})
+            runs.sort(key=lambda run: (run["job"].get("created_at", 0), run["job"]["id"]))
+            return {"game": game, "runs": runs}
+
     def snapshot(self, include_video=True):
         with self.mutex:
             jobs = self.jobs()
@@ -315,6 +352,12 @@ def create_app():
     @app.get("/api/jobs/{job_id}")
     async def detail(job_id: str):
         return await asyncio.to_thread(app.state.manager.details, job_id)
+
+    @app.get("/api/games/{game}/comparisons")
+    async def comparisons(game: str):
+        if game not in GAMES:
+            raise HTTPException(404, "Unknown game")
+        return await asyncio.to_thread(app.state.manager.comparisons, game)
 
     @app.post("/api/play")
     async def start_play(cfg: RunConfig):
