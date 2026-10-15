@@ -6,7 +6,10 @@ import random
 import statistics
 
 
-def paired_report(baseline: list[float], candidate: list[float], *, min_gain=0.02, require_ci=True, seed=17):
+def paired_report(baseline: list[float], candidate: list[float], *, min_gain=0.02, require_ci=True, seed=17,
+                  promotion_rule="strict"):
+    if promotion_rule not in {"positive_gain", "strict"}:
+        raise ValueError("Unknown promotion rule")
     if len(baseline) != len(candidate) or len(baseline) < 2:
         raise ValueError("Paired evaluation requires at least two equal-length score vectors")
     if not all(math.isfinite(x) for x in baseline + candidate):
@@ -18,13 +21,17 @@ def paired_report(baseline: list[float], candidate: list[float], *, min_gain=0.0
     low, high = boot[100], boot[3899]
     before, after = statistics.fmean(baseline), statistics.fmean(candidate)
     gain = statistics.fmean(delta)
-    checks = {"score_gain": gain > max(abs(before), 1.0) * min_gain,
+    threshold = 0.0 if promotion_rule == "positive_gain" else max(abs(before), 1.0) * min_gain
+    checks = {"score_gain": gain > threshold,
               "confidence_interval": low > 0 if require_ci else True,
               "no_large_regression": min(delta) >= -max(abs(before), 1.0) * 0.25}
+    required = ["score_gain"] if promotion_rule == "positive_gain" else list(checks)
     return {"baseline": before, "candidate": after, "delta": gain,
             "relative_gain": gain / max(abs(before), 1.0), "ci95": [low, high],
             "baseline_scores": baseline, "candidate_scores": candidate, "pairs": n,
-            "checks": checks, "passed": all(checks.values()),
+            "checks": checks, "required_checks": required,
+            "passed": all(checks[key] for key in required), "promotion_rule": promotion_rule,
+            "gain_threshold": threshold,
             "min_gain": min_gain, "require_ci": require_ci,
             "scope": "selected game and registered seed panel; not a general ability claim"}
 

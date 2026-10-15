@@ -1,0 +1,254 @@
+{
+  "date": "2026-10-15",
+  "model": "OmniJev/PlayJev-0.8B",
+  "revision": "a7348002b1e159add7037d6d50812cd4db2d96e9",
+  "gpu": "NVIDIA GB10",
+  "torch": "2.14.1+cu130",
+  "collect_steps_per_game": 1000,
+  "train_steps": 70,
+  "batch_size": 4,
+  "learning_rate": 1e-05,
+  "teacher_mix": 0.25,
+  "training_seed": 17,
+  "data_strategy": "trajectory",
+  "promotion_rule": "positive_gain",
+  "games": {
+    "tetris": {
+      "train_samples": 690,
+      "dev_samples": 125,
+      "validation": {
+        "initial_loss": 0.7524275541305542,
+        "final_loss": 0.7451723518371582,
+        "loss_delta": -0.007255202293395935,
+        "relative_decrease": 0.00964239314943679,
+        "initial_kl": 0.32818463134765624,
+        "final_kl": 0.32092942905426025,
+        "initial_agreement": 0.848,
+        "final_agreement": 0.848,
+        "decreased": true
+      },
+      "training_probe": {
+        "initial_loss": 0.7044850140810013,
+        "final_loss": 0.6853214930742979,
+        "loss_delta": -0.019163521006703377,
+        "relative_decrease": 0.027202169845588747,
+        "initial_kl": 0.27589732222259045,
+        "final_kl": 0.25673380121588707,
+        "initial_agreement": 0.8125,
+        "final_agreement": 0.828125,
+        "decreased": true
+      },
+      "validation_curve": [
+        {
+          "step": 0,
+          "val_loss": 0.7524275541305542,
+          "val_kl": 0.32818463134765624,
+          "agreement": 0.848
+        },
+        {
+          "step": 17,
+          "val_loss": 0.7589362554550171,
+          "val_kl": 0.33469333267211915,
+          "agreement": 0.848
+        },
+        {
+          "step": 34,
+          "val_loss": 0.7494306001663208,
+          "val_kl": 0.32518767738342286,
+          "agreement": 0.848
+        },
+        {
+          "step": 51,
+          "val_loss": 0.7462602500915527,
+          "val_kl": 0.3220173273086548,
+          "agreement": 0.848
+        },
+        {
+          "step": 68,
+          "val_loss": 0.7451615085601807,
+          "val_kl": 0.3209185857772827,
+          "agreement": 0.848
+        },
+        {
+          "step": 70,
+          "val_loss": 0.7451723518371582,
+          "val_kl": 0.32092942905426025,
+          "agreement": 0.848
+        }
+      ],
+      "reload_parity": true,
+      "evaluation": {
+        "seeds": [
+          90001856,
+          90001857,
+          90001858,
+          90001859,
+          90001860,
+          90001861,
+          90001862,
+          90001863
+        ],
+        "max_episode_steps": 1000,
+        "baseline": 3798.75,
+        "candidate": 5097.5,
+        "delta": 1298.75,
+        "relative_gain": 0.34188877920368543,
+        "ci95": [
+          -380.0,
+          2946.25
+        ],
+        "baseline_scores": [
+          3180.0,
+          2110.0,
+          6220.0,
+          3840.0,
+          860.0,
+          2490.0,
+          2830.0,
+          8860.0
+        ],
+        "candidate_scores": [
+          8460.0,
+          2110.0,
+          3350.0,
+          6840.0,
+          2970.0,
+          3760.0,
+          5570.0,
+          7720.0
+        ],
+        "checks": {
+          "score_gain": true,
+          "confidence_interval": false,
+          "no_large_regression": false
+        },
+        "required_checks": [
+          "score_gain"
+        ],
+        "passed": true,
+        "status": "promoted",
+        "sha256": "315cb77a65e23cf14732257c0f028aaabf79d48ffe021916bb1fe1604bd27bb9"
+      },
+      "checkpoint": "artifacts/qa/game-loss-20261015-newdata/tetris/checkpoint"
+    },
+    "mario": {
+      "train_samples": 702,
+      "dev_samples": 125,
+      "validation": {
+        "initial_loss": 1.28639946269989,
+        "final_loss": 1.2814061212539674,
+        "loss_delta": -0.004993341445922672,
+        "relative_decrease": 0.0038816414268726973,
+        "initial_kl": 0.6858976392745971,
+        "final_kl": 0.6809042978286743,
+        "initial_agreement": 0.568,
+        "final_agreement": 0.552,
+        "decreased": true
+      },
+      "training_probe": {
+        "initial_loss": 1.1989819295704365,
+        "final_loss": 1.1948128826916218,
+        "loss_delta": -0.004169046878814697,
+        "relative_decrease": 0.003477155723529842,
+        "initial_kl": 0.620162395760417,
+        "final_kl": 0.6159933488816023,
+        "initial_agreement": 0.59375,
+        "final_agreement": 0.609375,
+        "decreased": true
+      },
+      "validation_curve": [
+        {
+          "step": 0,
+          "val_loss": 1.28639946269989,
+          "val_kl": 0.6858976392745971,
+          "agreement": 0.568
+        },
+        {
+          "step": 17,
+          "val_loss": 1.3217178268432617,
+          "val_kl": 0.7212160034179688,
+          "agreement": 0.52
+        },
+        {
+          "step": 34,
+          "val_loss": 1.2961968240737916,
+          "val_kl": 0.6956950006484985,
+          "agreement": 0.544
+        },
+        {
+          "step": 51,
+          "val_loss": 1.285248737335205,
+          "val_kl": 0.6847469139099122,
+          "agreement": 0.552
+        },
+        {
+          "step": 68,
+          "val_loss": 1.281914421081543,
+          "val_kl": 0.68141259765625,
+          "agreement": 0.552
+        },
+        {
+          "step": 70,
+          "val_loss": 1.2814061212539674,
+          "val_kl": 0.6809042978286743,
+          "agreement": 0.552
+        }
+      ],
+      "reload_parity": true,
+      "evaluation": {
+        "seeds": [
+          90001856,
+          90001857,
+          90001858,
+          90001859,
+          90001860,
+          90001861,
+          90001862,
+          90001863
+        ],
+        "max_episode_steps": 1000,
+        "baseline": 1729.25,
+        "candidate": 1842.375,
+        "delta": 113.125,
+        "relative_gain": 0.06541853404655197,
+        "ci95": [
+          -2.125,
+          318.375
+        ],
+        "baseline_scores": [
+          1819.0,
+          570.0,
+          2758.0,
+          1744.0,
+          5309.0,
+          619.0,
+          732.0,
+          283.0
+        ],
+        "candidate_scores": [
+          1915.0,
+          570.0,
+          3574.0,
+          1734.0,
+          5312.0,
+          619.0,
+          732.0,
+          283.0
+        ],
+        "checks": {
+          "score_gain": true,
+          "confidence_interval": false,
+          "no_large_regression": true
+        },
+        "required_checks": [
+          "score_gain"
+        ],
+        "passed": true,
+        "status": "promoted",
+        "sha256": "22ecce76dd12634b60832c941fe9bf4d432966687a56962328ef5516aa4c4098"
+      },
+      "checkpoint": "artifacts/qa/game-loss-20261015-newdata/mario/checkpoint"
+    }
+  },
+  "scope": "One training recipe and one fresh 8-seed panel per game; positive average gain is the authorized promotion rule, not a statistical significance claim."
+}

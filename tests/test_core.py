@@ -28,6 +28,26 @@ def test_confidence_gate_rejects_uncertain_improvement():
     assert not report["checks"]["confidence_interval"]
 
 
+def test_positive_gain_rule_promotes_mario_despite_uncertainty_and_regression():
+    before = [1131, 393, 1180, 430, 3267, 1433, 2507, 3292]
+    after = [1131, 5258, 3294, 430, 3480, 5224, 1734, 1803]
+    report = paired_report(before, after, promotion_rule="positive_gain")
+    assert report["passed"]
+    assert report["required_checks"] == ["score_gain"]
+    assert not report["checks"]["confidence_interval"]
+    assert not report["checks"]["no_large_regression"]
+    assert not paired_report(before, after, promotion_rule="strict")["passed"]
+    assert RunConfig().promotion_rule == "positive_gain"
+
+
+def test_positive_gain_requires_strictly_positive_mean_without_relative_threshold():
+    assert paired_report([100, 100], [100.01, 100], promotion_rule="positive_gain")["passed"]
+    for after in ([100, 100], [99, 100]):
+        assert not paired_report([100, 100], after, promotion_rule="positive_gain")["passed"]
+    with pytest.raises(ValueError, match="Unknown promotion rule"):
+        paired_report([1, 2], [2, 3], promotion_rule="unknown")
+
+
 def test_seed_namespaces_and_replay_split(tmp_path):
     seeds = [training_seed(r, e) for r in range(1, 31) for e in range(20)]
     assert not set(seeds) & set(evaluation_seeds(64, 17))

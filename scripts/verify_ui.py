@@ -11,6 +11,7 @@ from game_rsi.config import RunConfig
 async def main():
     root = Path(__file__).resolve().parents[1]
     cfg = RunConfig(rounds=2).model_dump()
+    cfg['collect_steps'] = 512  # An existing run must not overwrite the new-task budget.
     def result(round_index, before, after, passed):
         delta = after-before
         return {'kind':'evaluation','time':round_index,'round':round_index,
@@ -66,6 +67,9 @@ async def main():
                 assert positions[before]['y']+positions[before]['height'] <= positions[after]['y']
         assert await page.evaluate("config().game")=='snake', 'Game selector must remain part of the configuration form'
         assert await page.evaluate("config().max_episode_steps")==1000
+        assert await page.evaluate("config().collect_steps")==1000
+        assert await page.evaluate("config().data_strategy")=='trajectory'
+        assert await page.evaluate("config().promotion_rule")=='positive_gain'
         screenshot=root/'artifacts/qa/compact-layout.png'
         screenshot.parent.mkdir(parents=True,exist_ok=True)
         await page.screenshot(path=str(screenshot),full_page=True)
@@ -87,12 +91,21 @@ async def main():
         await page.reload(wait_until='domcontentloaded')
         await page.wait_for_selector('.round-comparison')
         assert await page.locator('#language-select').input_value()=='en'
+        assert await page.locator('[name="collect_steps"]').input_value()=='1000'
         assert await page.locator('#run-config').is_visible()
         assert 'After training' in await page.locator('.comparison-table > thead').inner_text()
         await page.select_option('#language-select','zh-CN')
         assert await page.locator('.experiment-panel h2').inner_text()=='每轮进化成绩对比'
         assert '训练后平均分' in await page.locator('.comparison-table > thead').inner_text()
         assert not mutations, 'Changing language must not start or stop any task'
+        gate = await page.evaluate("""() => {renderEvaluation({baseline:10,candidate:11,delta:1,relative_gain:.1,
+          pairs:8,passed:true,ci95:[-2,4],promotion_rule:'positive_gain',required_checks:['score_gain'],
+          checks:{score_gain:true,confidence_interval:false,no_large_regression:false}});
+          return {status:document.getElementById('gate-status').textContent,
+                  description:document.getElementById('gate-description').textContent};}""")
+        assert gate['status']=='通过 / 已晋升'
+        assert '单局退步仅供参考' in gate['description']
+        assert '存在较大的单局退步' not in gate['description']
         state['play']=None
         state['evolution']['job'].update(status='running',phase='training')
         await page.evaluate('snapshot=>render(snapshot)',state)

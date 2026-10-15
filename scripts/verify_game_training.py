@@ -81,9 +81,11 @@ async def main():
         assert await page.locator(".round-comparison[data-game=mario]").count() == 0
         assert await page.locator("#history-select option").count() == 3
         assert "mario" not in await page.locator("#history-select").inner_text()
-        assert await page.locator("#chart circle").count() == 2
+        await page.wait_for_function("plotPoints.length===4")
+        assert await page.evaluate("plotPoints.filter(p=>p.series==='after').map(p=>p.y)")==[12,15]
         await page.select_option("#history-select", "snake-older")
         await page.wait_for_function("document.getElementById('loss-metric').textContent === '0.7700'")
+        assert await page.evaluate("plotPoints.filter(p=>p.series==='after').map(p=>p.y)")==[12,15]
         await page.select_option("#game", "sokoban")
         for field in ["loss-metric", "gain-metric", "sample-count", "agreement", "gpu-memory"]:
             assert await page.locator("#" + field).inner_text() == "—", field
@@ -144,23 +146,27 @@ async def main():
         await page.wait_for_function("document.querySelectorAll('.round-comparison').length===4")
         assert await page.locator('.round-comparison[data-run-id="snake-third"]').count()==2
         assert await page.locator('.comparison-round').all_inner_texts()==["R1","R2","R3","R4"]
+        await page.wait_for_function("plotPoints.length===8")
+        assert await page.evaluate("plotPoints.filter(p=>p.series==='after').map(p=>[p.x,p.y,p.runId])")==[
+            [1,12,'snake-older'],[2,15,'snake-latest'],[3,17,'snake-third'],[4,20,'snake-third']]
         assert "Run 3 · R2" in await page.locator('.round-comparison').last.inner_text()
         assert "20.00" in await page.locator('.round-comparison').last.inner_text()
         await page.locator('.round-details-toggle').first.click()
         assert "snake-older" in await page.locator('.comparison-details').first.inner_text()
-        # Removed sidebar controls cannot leave an old persisted hidden state behind.
+        # Older sidebar preferences cannot hide the new configuration panel.
         await page.evaluate("localStorage.setItem('game-rsi-sidebar-hidden','true')")
         await page.reload(wait_until="domcontentloaded")
         await page.wait_for_function("latest!==null")
         await page.select_option("#game","snake")
         await page.wait_for_function("document.querySelectorAll('.round-comparison').length===4")
-        assert await page.locator('#sidebar').is_visible()
+        assert await page.locator('#run-config').is_visible()
         assert await page.locator('#sidebar-toggle').count()==0
         assert await page.locator('.round-comparison[data-game=mario]').count()==0
         await browser.close()
     report = {"page_errors": errors, "game_history_restored": True, "empty_game_cleared": True,
               "history_filtered": True, "late_response_ignored": True, "cached_history_updated": True,
-              "cumulative_history": True, "appended_rounds": 4, "history_after_reload": True, "sidebar_fixed": True}
+              "cumulative_history": True, "appended_rounds": 4, "history_after_reload": True,
+              "cumulative_score_chart": True, "configuration_visible": True}
     output = Path(__file__).resolve().parents[1] / "artifacts/qa/game-training.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2))

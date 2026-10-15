@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import gc
+import hashlib
 import json
 import random
 import time
@@ -23,56 +24,86 @@ async def collect(cfg, policy, data_root, round_index, journal):
     frames.mkdir(parents=True, exist_ok=True)
     rng = random.Random(cfg.seed + round_index)
     journal.phase("collecting", round=round_index, input_mode=policy.mode)
-    # Cap collection episodes to ensure both train and dev seeds even for long-lived actors.
-    episode_cap = min(cfg.max_episode_steps, max(4, cfg.collect_steps // 8))
+    candidates = cfg.trajectory_candidates if cfg.data_strategy == "trajectory" else 1
+    # Preserve the raw step budget and leave room for both train and dev seed groups.
+    episode_cap = min(cfg.max_episode_steps, max(4, cfg.collect_steps // max(8, 2 * candidates)))
+    completed = 0
     async with VecGame(cfg.game, n=1) as env:
-        episode, step, seed = 0, 0, training_seed(round_index, 0)
-        obs = (await env.reset([seed]))[0]
-        teacher = make_teacher(cfg.game, env.actions)
-        teacher.reset()
-        banned = set()
-        guided = rng.random() < cfg.teacher_mix
-        with (out / "records.jsonl").open("w") as stream:
-            for index in range(cfg.collect_steps):
+        with (out / "records.jsonl").open("w") as stream, (out / "episodes.jsonl").open("w") as outcomes:
+            index, episode, seed_index, candidate = 0, 0, 0, 0
+            while index < cfg.collect_steps:
                 journal.check()
-                p = await asyncio.to_thread(policy.decide, obs, env.actions)
-                target = teacher.act(obs)
-                teacher_action = max(range(len(target)), key=target.__getitem__)
-                action = choose(p, banned)
-                if guided:
-                    action = teacher_action
-                if rng.random() < cfg.epsilon:
-                    action = rng.randrange(len(p))
-                filename = f"frames/{index:07d}.jpg"
-                (out / filename).write_bytes(obs["frame"])
-                after = (await env.step([action]))[0]
-                stream.write(json.dumps({"game": cfg.game, "shard": out.name, "seed": seed,
-                                         "episode": episode, "step": step, "frame": filename,
-                                         "prev_frame": None, "actions": [o["name"] for o in env.actions],
-                                         "options": env.actions, "state": game_state(obs),
-                                         "teacher_probs": target, "teacher_action": teacher_action,
-                                         "model_probs": p, "taken_action": action, "actor": cfg.backend,
-                                         "action_source": "teacher" if guided else "model",
-                                         "score": obs["score"], "reward": after["reward"],
-                                         "done": after["done"], "t": obs.get("t", 0)}) + "\n")
-                journal.frame(after, env.actions, p, action, episode=episode, seed=seed,
-                              actor="teacher-guided" if guided else cfg.backend, model=policy.checkpoint, input_mode=policy.mode,
-                              latency_ms=policy.latency_ms, source="collection")
-                journal.publish(progress=(index + 1) / cfg.collect_steps, collected=index + 1,
-                                collect_target=cfg.collect_steps)
-                noop_rule(obs, after, action, banned)
-                step += 1
-                obs = after
-                if obs["done"] or step >= episode_cap or teacher.giveup():
-                    journal.event("episode", source="collection", seed=seed, score=obs["score"], steps=step)
-                    episode += 1
-                    seed = training_seed(round_index, episode)
-                    obs = (await env.reset([seed]))[0]
-                    teacher.reset()
-                    banned.clear()
-                    step = 0
-                    guided = rng.random() < cfg.teacher_mix
-    journal.event("collected", samples=cfg.collect_steps, shard=str(out), episodes=episode + 1)
+                seed = training_seed(round_index, seed_index)
+                # Validation is never ranked: one rollout avoids spending a candidate
+                # tournament's budget on observations that cannot train the model.
+                seed_candidates = 1 if seed % 10 == 0 else candidates
+                obs = (await env.reset([seed]))[0]
+                initial_score = float(obs["score"])
+                teacher = make_teacher(cfg.game, env.actions)
+                teacher.reset()
+                banned = set()
+                guided = rng.random() < cfg.teacher_mix
+                behavior = "teacher" if guided else "model"
+                step, reason = 0, None
+                while reason is None:
+                    journal.check()
+                    p = await asyncio.to_thread(policy.decide, obs, env.actions)
+                    target = teacher.act(obs)
+                    label_valid = not teacher.giveup()
+                    teacher_action = max(range(len(target)), key=target.__getitem__)
+                    action = teacher_action if guided else choose(p, banned)
+                    source = behavior
+                    if rng.random() < cfg.epsilon:
+                        action = rng.randrange(len(p))
+                        source = "random"
+                    filename = f"frames/{index:07d}.jpg"
+                    (out / filename).write_bytes(obs["frame"])
+                    after = (await env.step([action]))[0]
+                    stream.write(json.dumps({"schema_version": 2, "game": cfg.game, "shard": out.name,
+                                             "seed": seed, "episode": episode, "candidate": candidate,
+                                             "step": step, "frame": filename, "prev_frame": None,
+                                             "observation_hash": hashlib.sha256(obs["frame"]).hexdigest(),
+                                             "actions": [o["name"] for o in env.actions],
+                                             "options": env.actions, "state": game_state(obs),
+                                             "teacher_probs": target, "teacher_action": teacher_action,
+                                             "label_valid": label_valid, "model_probs": p,
+                                             "taken_action": action, "actor": cfg.backend,
+                                             "behavior_mode": behavior, "action_source": source,
+                                             "score": obs["score"], "reward": after["reward"],
+                                             "done": after["done"], "t": obs.get("t", 0)}) + "\n")
+                    journal.frame(after, env.actions, p, action, episode=episode, seed=seed,
+                                  actor="teacher-guided" if guided else cfg.backend, model=policy.checkpoint,
+                                  input_mode=policy.mode, latency_ms=policy.latency_ms, source="collection")
+                    index += 1
+                    step += 1
+                    journal.publish(progress=index / cfg.collect_steps, collected=index,
+                                    collect_target=cfg.collect_steps)
+                    noop_rule(obs, after, action, banned)
+                    obs = after
+                    if obs["done"]:
+                        reason = "environment_cap" if obs.get("truncated") else "terminal"
+                    elif not label_valid or teacher.giveup():
+                        reason = "teacher_giveup"
+                    elif step >= episode_cap:
+                        reason = "episode_cap"
+                    elif index >= cfg.collect_steps:
+                        reason = "budget"
+                summary = {"episode": episode, "candidate": candidate, "seed": seed,
+                           "steps": step, "horizon": episode_cap, "behavior_mode": behavior,
+                           "initial_score": initial_score, "score": float(obs["score"]),
+                           "score_gain": float(obs["score"]) - initial_score,
+                           "done": bool(obs["done"]), "end_reason": reason,
+                           "complete": reason not in {"budget", "teacher_giveup"}}
+                outcomes.write(json.dumps(summary, allow_nan=False) + "\n")
+                journal.event("episode", source="collection", **summary)
+                completed += 1
+                episode += 1
+                candidate += 1
+                if candidate >= seed_candidates:
+                    candidate = 0
+                    seed_index += 1
+    journal.event("collected", samples=cfg.collect_steps, shard=str(out), episodes=completed,
+                  data_strategy=cfg.data_strategy, trajectory_candidates=candidates)
 
 
 async def evaluate(cfg, policy, seeds, journal, label):
@@ -116,8 +147,11 @@ async def evolve(cfg, journal):
         # Register the recipe and gate before collecting or spending training GPU time.
         experiment = {"round": round_index, "parent": parent, "config": cfg.model_dump(),
                       "state_contract": STATE_CONTRACT,
-                      "hypothesis": "Teacher correction labels on model and teacher-guided trajectories improve held-out game score",
-                      "prediction": f"paired relative gain > {cfg.min_gain}; CI lower bound > 0 when required",
+                      "hypothesis": "Outcome-selected trajectories and balanced corrective replay improve held-out game score"
+                      if cfg.data_strategy == "trajectory" else
+                      "Teacher correction labels on uniformly replayed trajectories improve held-out game score",
+                      "prediction": "mean paired game-score gain > 0" if cfg.promotion_rule == "positive_gain" else
+                      f"paired relative gain > {cfg.min_gain}; CI lower bound > 0 when required",
                       "eval_seeds": seeds, "registered_at": time.time()}
         round_dir = journal.directory / "rounds" / f"{round_index:03d}"
         atomic_json(round_dir / "experiment.json", experiment)
@@ -136,7 +170,7 @@ async def evolve(cfg, journal):
         scores = await evaluate(cfg, policy, seeds, journal, "candidate")
         release_policy(policy)
         report = paired_report(baseline, scores, min_gain=cfg.min_gain,
-                               require_ci=cfg.require_ci, seed=cfg.seed)
+                               require_ci=cfg.require_ci, seed=cfg.seed, promotion_rule=cfg.promotion_rule)
         report.update(round=round_index, seeds=seeds, parent=parent,
                       checkpoint=trained["checkpoint"], sha256=trained["sha256"],
                       input_mode=journal.state.get("input_mode"), max_episode_steps=cfg.max_episode_steps,

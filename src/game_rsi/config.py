@@ -32,7 +32,7 @@ class RunConfig(BaseModel):
     model: str = ""
     device: str = "cuda:0"
     rounds: int = Field(3, ge=1, le=30)
-    collect_steps: int = Field(512, ge=32, le=100000)
+    collect_steps: int = Field(1000, ge=32, le=100000)
     train_steps: int = Field(70, ge=1, le=20000)
     batch_size: int = Field(4, ge=1, le=64)
     learning_rate: float = Field(0.0001, ge=0.0000001, le=0.01)
@@ -44,7 +44,11 @@ class RunConfig(BaseModel):
     seed: int = Field(17, ge=0, le=100000000)
     min_gain: float = Field(0.02, ge=0, le=1)
     require_ci: bool = True
+    promotion_rule: Literal["positive_gain", "strict"] = "positive_gain"
     replay_limit: int = Field(8192, ge=32, le=100000)
+    data_strategy: Literal["trajectory", "uniform"] = "trajectory"
+    trajectory_candidates: int = Field(3, ge=2, le=8)
+    trajectory_keep: int = Field(2, ge=1, le=7)
     delay_ms: int = Field(0, ge=0, le=2000)
     display_fps: int = Field(30, ge=10, le=60)
     actor: Literal["model", "teacher", "random"] = "model"
@@ -55,6 +59,11 @@ class RunConfig(BaseModel):
         self.model = self.model.strip() or DEFAULT_MODELS[self.backend]
         if self.backend == "playjev" and self.input_mode == "state":
             raise ValueError("PlayJev uses pixels; choose RSI-Jev for structured state input")
+        if self.data_strategy == "trajectory":
+            if self.trajectory_keep >= self.trajectory_candidates:
+                raise ValueError("trajectory_keep must be smaller than trajectory_candidates")
+            if self.collect_steps < 8 * self.trajectory_candidates:
+                raise ValueError("collect_steps must allow at least four steps per candidate on separate train/dev seeds")
         return self
 
 

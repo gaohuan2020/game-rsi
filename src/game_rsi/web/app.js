@@ -54,7 +54,7 @@ function config() {
   const form = $('config-form');
   if (!form.reportValidity()) return null;
   const data = Object.fromEntries(new FormData(form));
-  for (const key of ['rounds','train_steps','collect_steps','eval_episodes','batch_size','learning_rate','epsilon','teacher_mix','min_gain','max_episode_steps','seed']) data[key] = Number(data[key]);
+  for (const key of ['rounds','train_steps','collect_steps','eval_episodes','batch_size','learning_rate','epsilon','teacher_mix','min_gain','max_episode_steps','seed','trajectory_candidates','trajectory_keep']) data[key] = Number(data[key]);
   data.tune_tower = form.elements.tune_tower.checked;
   data.require_ci = form.elements.require_ci.checked;
   data.actor = $('actor').value;
@@ -119,7 +119,7 @@ function render(snapshot) {
     if(current) {
       for(const [key,value] of Object.entries(current)) {
         // Gameplay retains its original recipe; new training uses the form's defaults/preferences.
-        if (key === 'train_steps') continue;
+        if (key === 'train_steps' || key === 'collect_steps') continue;
         const field=$('config-form').elements[key];
         if(field) {if(field.type==='checkbox') field.checked=!!value; else field.value=value;}
       }
@@ -241,8 +241,10 @@ function renderEvaluation(ev) {
   $('gain-metric').className = ev ? ev.delta >= 0 ? 'positive' : 'negative' : '';
   $('gain-note').textContent = ev ? t('{pairs} 局配对 · {result}',{pairs:ev.pairs,result:t(ev.passed ? '候选已晋升' : '保留原冠军')}) : t('评估后显示真实结果');
   $('gate-status').textContent = t(ev ? ev.passed ? '通过 / 已晋升' : '未通过 / 已保留记录' : '等待评估');
-  const checks = ev ? Object.entries(ev.checks).filter(([k,v])=>!v).map(([k])=>t({score_gain:'得分增益未达门槛',confidence_interval:'置信区间未证明正增益',no_large_regression:'存在较大的单局退步'}[k])).join('; ') : '';
-  $('gate-description').textContent = ev ? t('训练前 {before} → 训练后 {after}；增益 CI {ci}。{checks}',{before:fmt(ev.baseline),after:fmt(ev.candidate),ci:`[${fmt(ev.ci95[0])}, ${fmt(ev.ci95[1])}]`,checks:checks || t('全部门槛通过，游戏将在下一局加载新的冠军。')}) : t('超过预设得分增益、通过置信区间和退步检查后，才自动切换冠军。');
+  const checks = ev ? Object.entries(ev.checks).filter(([k,v])=>!v && (!ev.required_checks || ev.required_checks.includes(k))).map(([k])=>t({score_gain:'得分增益未达门槛',confidence_interval:'置信区间未证明正增益',no_large_regression:'存在较大的单局退步'}[k])).join('; ') : '';
+  const positive=ev?.promotion_rule === 'positive_gain' || (!ev && $('config-form').elements.promotion_rule.value === 'positive_gain');
+  const rule=t(positive ? '平均配对得分提高即晋升；置信区间和单局退步仅供参考。' : '超过预设得分增益、通过置信区间和退步检查后，才自动切换冠军。');
+  $('gate-description').textContent = ev ? rule+' '+t('训练前 {before} → 训练后 {after}；增益 CI {ci}。{checks}',{before:fmt(ev.baseline),after:fmt(ev.candidate),ci:`[${fmt(ev.ci95[0])}, ${fmt(ev.ci95[1])}]`,checks:checks || t('全部门槛通过，游戏将在下一局加载新的冠军。')}) : rule;
 }
 
 function gameName(game) {
@@ -262,18 +264,18 @@ function loadComparisonHistory(snapshot, game) {
       if ($('game').value === game) toast(error.message,true);
     }).finally(()=>{
       comparisonRequests.delete(game);
-      if (latest) renderRoundComparisons(latest);
+      if (latest) {renderRoundComparisons(latest);if (tab === 'score') renderChart([],[],null);}
     });
     comparisonRequests.set(game,request);
   }
   return cached;
 }
 
-function renderRoundComparisons(snapshot) {
+function comparisonData(snapshot) {
   const game=$('game').value;
   const history=loadComparisonHistory(snapshot,game);
   const runs=new Map((history?.runs || []).filter(r=>jobGame(r.job) === game).map(r=>[r.job.id,r]));
-  if (history?.runs) {
+  {
     for (const job of snapshot.jobs.filter(j=>j.kind === 'evolve' && jobGame(j) === game)) {
       runs.set(job.id,{job,evaluations:runs.get(job.id)?.evaluations || []});
     }
@@ -286,6 +288,17 @@ function renderRoundComparisons(snapshot) {
   }
   const groups=[...runs.values()].sort((a,b)=>(a.job.created_at || 0)-(b.job.created_at || 0) || a.job.id.localeCompare(b.job.id))
     .map((run,index)=>({job:run.job,runIndex:index+1,loading:false,evaluations:run.evaluations.filter(e=>Number.isFinite(e.baseline) && Number.isFinite(e.candidate)).sort((a,b)=>a.round-b.round)}));
+  const rows=groups.flatMap((group,index)=>{
+    const entries=group.evaluations.map(ev=>({...group,ev,round:ev.round}));
+    const round=Math.max(1,group.job.round || 0);
+    if ((index === groups.length-1 || active(group.job)) && !entries.some(e=>e.round === round)) entries.push({...group,ev:null,round});
+    return entries.sort((a,b)=>a.round-b.round);
+  });
+  return {game,history,groups,rows};
+}
+
+function renderRoundComparisons(snapshot) {
+  const {game,history,groups,rows}=comparisonData(snapshot);
   const key=JSON.stringify([currentLanguage,game,!!history?.runs,history?.error,groups.map(({job,evaluations})=>[job.id,job.status,job.phase,job.round,evaluations])]);
   if (key === lastComparisons) return;
   lastComparisons=key;
@@ -295,12 +308,6 @@ function renderRoundComparisons(snapshot) {
     $('round-comparisons').innerHTML=`<tr><td colspan="8" class="comparison-empty">${t(message)}</td></tr>`;
     return;
   }
-  const rows=groups.flatMap((group,index)=>{
-    const entries=group.evaluations.map(ev=>({...group,ev,round:ev.round}));
-    const round=Math.max(1,group.job.round || 0);
-    if ((index === groups.length-1 || active(group.job)) && !entries.some(e=>e.round === round)) entries.push({...group,ev:null,round});
-    return entries.sort((a,b)=>a.round-b.round);
-  });
   $('round-comparisons').innerHTML=rows.map(({job,ev,round,loading,runIndex},index)=>{
     const rowKey=job.id+':'+round, detailsId='comparison-'+job.id+'-'+round;
     const delta=ev ? Number.isFinite(ev.delta) ? ev.delta : ev.candidate-ev.baseline : null;
@@ -330,11 +337,17 @@ function renderRoundComparisons(snapshot) {
 }
 
 function renderChart(metrics, evaluations, job) {
-  const key=JSON.stringify([tab,lossSeries,currentLanguage,job?.id,job?.config.train_steps,metrics,evaluations]);
+  const historical=tab === 'score' && latest ? comparisonData(latest).rows : [];
+  const scores=historical.length ? historical.flatMap(({ev,job,runIndex,round},index)=>ev ? [{
+    ...ev, round:index+1, runId:job.id,
+    label:t('累计第 {round} 轮',{round:index+1})+' · '+t('第 {run} 次 · R{round}',{run:runIndex,round})
+  }] : []) : evaluations;
+  const key=JSON.stringify([tab,lossSeries,currentLanguage,job?.id,job?.config.train_steps,metrics,scores]);
   if (key === lastChart) return;
   lastChart=key;
   $('loss-chart-controls').hidden=tab !== 'loss';
-  $('loss-chart-caption').hidden=tab !== 'loss';
+  $('loss-chart-caption').hidden=false;
+  $('loss-chart-caption').textContent=t(tab === 'loss' ? '累计训练步数 · 纵轴自动缩放 · 验证仅绘制记录点' : '累计轮次 · 按实验时间排序 · 保留未晋升结果');
   const validation=metrics.filter(e=>Number.isFinite(e.val_loss)).at(-1);
   $('validation-summary').textContent=validation ? t('验证 {loss} · R{round} Step {step}',{loss:fmt(validation.val_loss,5),round:validation.round,step:validation.step}) : t('验证 —');
   const stepsPerRound=job?.config.train_steps || job?.train_steps || Math.max(1,...metrics.map(e=>e.step || 0));
@@ -349,8 +362,8 @@ function renderChart(metrics, evaluations, job) {
     {id:'train',name:t('Train'),color:'#92e7c6',points:lossPoints('loss')},
     {id:'validation',name:t('Validation'),color:'#eeb875',points:lossPoints('val_loss')}
   ].filter(d=>lossSeries === 'both' || lossSeries === d.id) : [
-    {id:'before',name:t('训练前'),color:'#748d8a',points:evaluations.map(e=>({x:e.round,y:e.baseline,round:e.round,label:t('R{round} 训练前',{round:e.round})}))},
-    {id:'after',name:t('训练后'),color:'#92e7c6',points:evaluations.map(e=>({x:e.round,y:e.candidate,round:e.round,label:t('R{round} 训练后',{round:e.round})}))}
+    {id:'before',name:t('训练前'),color:'#748d8a',points:scores.map(e=>({x:e.round,y:e.baseline,round:e.round,runId:e.runId,label:e.label || t('R{round} 训练前',{round:e.round})}))},
+    {id:'after',name:t('训练后'),color:'#92e7c6',points:scores.map(e=>({x:e.round,y:e.candidate,round:e.round,runId:e.runId,label:e.label || t('R{round} 训练后',{round:e.round})}))}
   ];
   $('chart-legend').innerHTML=datasets.map(d=>`<span style="color:${d.color}">● ${esc(d.name)}</span>`).join('　');
   const all=datasets.flatMap(d=>d.points);
@@ -426,6 +439,7 @@ function renderLog(details) {
     if(e.kind === 'evaluation') return `R${e.round} ${t(e.passed ? '已晋升' : '未晋升')} · delta ${fmt(e.delta)} · CI [${e.ci95.map(v=>fmt(v)).join(', ')}]`;
     if(e.kind === 'experiment') return t('注册 R{round} · {hypothesis}',{round:e.round,hypothesis:e.hypothesis});
     if(e.kind === 'collected') return t('{samples} 帧 / {episodes} episodes',{samples:e.samples,episodes:e.episodes});
+    if(e.kind === 'data_selection') return t('训练 {train} 条 · 验证 {dev} 条 · 纠正样本 {corrections} 条',{train:e.train_samples,dev:e.dev_samples,corrections:e.correction_samples || 0});
     if(e.kind === 'trained') return t('Checkpoint 已保存 · reload parity={parity}',{parity:e.reload_parity});
     if(e.kind === 'training_setup') return t('{train} train / {dev} dev · {parameters} 可训练参数',{train:e.train_samples,dev:e.dev_samples,parameters:e.trainable_parameters.toLocaleString(currentLanguage)});
     return t(e.message || e.kind);
@@ -464,6 +478,7 @@ $('backend').addEventListener('change', () => {
   switchLiveGame();
 });
 $('frame-source').addEventListener('change', () => {if (latest) render(latest);});
+$('config-form').elements.promotion_rule.addEventListener('change', () => {if (latest) render(latest);});
 $('round-comparisons').addEventListener('click',event=>{
   const button=event.target.closest('.round-details-toggle');
   if (!button || button.disabled) return;
@@ -513,6 +528,10 @@ $('chart').addEventListener('pointerleave', () => {$('chart-tooltip').hidden=tru
 setInterval(() => {$('clock').textContent=new Date().toLocaleTimeString(currentLanguage);},1000);
 try {
   const saved=JSON.parse(localStorage.getItem('game-rsi-config') || 'null');
+  if (localStorage.getItem('game-rsi-default-collect-steps') !== '1000') {
+    if (saved) {saved.collect_steps=1000;localStorage.setItem('game-rsi-config',JSON.stringify(saved));}
+    localStorage.setItem('game-rsi-default-collect-steps','1000');
+  }
   if (localStorage.getItem('game-rsi-default-train-steps') !== '70') {
     if (saved?.train_steps === 80) {saved.train_steps=70;localStorage.setItem('game-rsi-config',JSON.stringify(saved));}
     localStorage.setItem('game-rsi-default-train-steps','70');

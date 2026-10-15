@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 from .config import RunConfig, upstream_paths
+from .replay import ReplaySampler, load_replay
 from .storage import Journal, atomic_json, fingerprint
 
 
@@ -39,7 +40,8 @@ def load_samples(data_root: Path, game: str, limit: int, seed: int):
     return train, dev
 
 
-def train_candidate(cfg: RunConfig, parent: str, data_root: Path, out: Path, journal: Journal, round_index: int):
+def train_candidate(cfg: RunConfig, parent: str, data_root: Path, out: Path, journal: Journal, round_index: int,
+                    *, probe_training: bool = False):
     upstream_paths()
     import torch
     import torch.nn.functional as F
@@ -48,7 +50,18 @@ def train_candidate(cfg: RunConfig, parent: str, data_root: Path, out: Path, jou
 
     torch.manual_seed(cfg.seed)
     rng = random.Random(cfg.seed)
-    train, dev = load_samples(data_root, cfg.game, cfg.replay_limit, cfg.seed)
+    sampler = None
+    if cfg.data_strategy == "trajectory":
+        train, dev, data_report = load_replay(data_root, cfg.game, cfg.replay_limit, cfg.seed,
+                                             keep=cfg.trajectory_keep)
+        sampler = ReplaySampler(train, cfg.seed)
+    else:
+        train, dev = load_samples(data_root, cfg.game, cfg.replay_limit, cfg.seed)
+        data_report = {"strategy": "uniform", "train_samples": len(train), "dev_samples": len(dev)}
+    atomic_json(out.parent / "data-selection.json", data_report)
+    data_summary = {k: v for k, v in data_report.items() if k not in {"ranking", "train_seeds", "dev_seeds"}}
+    journal.event("data_selection", **data_summary)
+    journal.publish(data_selection=data_summary)
     device = torch.device(cfg.device)
     started = time.perf_counter()
     parent_meta = None
@@ -148,33 +161,39 @@ def train_candidate(cfg: RunConfig, parent: str, data_root: Path, out: Path, jou
     base_lrs = [g["lr"] for g in groups]
     journal.event("training_setup", train_samples=len(train), dev_samples=len(dev),
                   trainable_parameters=sum(p.numel() for _, p in parameters), parent=parent,
-                  input_mode=mode if cfg.backend == "rsi" else "pixels")
+                  input_mode=mode if cfg.backend == "rsi" else "pixels", data_strategy=cfg.data_strategy)
 
     def loss_of(logits, gold):
         logp = F.log_softmax(logits.float(), -1)
         return -(gold * logp.masked_fill(gold == 0, 0)).sum(-1).mean()
 
-    def validate():
+    def validate(examples=None):
+        examples = dev if examples is None else examples
         model.eval()
         total, entropy_total, correct = 0.0, 0.0, 0
         with torch.no_grad():
-            for i in range(0, len(dev), cfg.batch_size):
+            for i in range(0, len(examples), cfg.batch_size):
                 journal.check()
-                rows = dev[i:i + cfg.batch_size]
+                rows = examples[i:i + cfg.batch_size]
                 logits, gold = forward(rows)
                 total += float(loss_of(logits, gold)) * len(rows)
                 entropy_total += float(target_entropy(gold)) * len(rows)
                 correct += int((logits.argmax(-1) == gold.argmax(-1)).sum())
-        return {"val_loss": total / len(dev), "agreement": correct / len(dev),
-                "val_target_entropy": entropy_total / len(dev),
-                "val_kl": (total - entropy_total) / len(dev)}
+        return {"val_loss": total / len(examples), "agreement": correct / len(examples),
+                "val_target_entropy": entropy_total / len(examples),
+                "val_kl": (total - entropy_total) / len(examples)}
+
+    # Independent RNG and fixed canonical inputs make before/after losses comparable.
+    # This diagnostic is opt-in; it neither chooses a checkpoint nor changes batches.
+    train_probe = random.Random(cfg.seed + 7919).sample(train, min(64, len(train))) if probe_training else None
+    initial_train = validate(train_probe) if train_probe else None
 
     initial = validate()
     journal.event("metric", step=0, round=round_index, **initial)
     for step in range(1, cfg.train_steps + 1):
         journal.check()
         model.train()
-        rows = [train[rng.randrange(len(train))] for _ in range(cfg.batch_size)]
+        rows = sampler.batch(cfg.batch_size) if sampler else [train[rng.randrange(len(train))] for _ in range(cfg.batch_size)]
         optimizer.zero_grad(set_to_none=True)
         logits, gold = forward(rows, shuffle=True)
         loss = loss_of(logits, gold)
@@ -199,6 +218,10 @@ def train_candidate(cfg: RunConfig, parent: str, data_root: Path, out: Path, jou
                         loss=values["loss"], kl=values["kl"], target_entropy=entropy,
                         gpu_gb=values["gpu_gb"], elapsed_s=values["elapsed_s"])
     final = validate()
+    final_train = validate(train_probe) if train_probe else None
+    if sampler:
+        data_report["sampled_draws"] = dict(sampler.draws)
+        atomic_json(out.parent / "data-selection.json", data_report)
     changes = {n: float((p.detach().flatten()[:2048].float().cpu() - probes[n]).norm()) for n, p in parameters}
     if not any(value > 0 for value in changes.values()):
         raise RuntimeError("No parameter probe changed; refusing an empty training result")
@@ -250,7 +273,10 @@ def train_candidate(cfg: RunConfig, parent: str, data_root: Path, out: Path, jou
         raise RuntimeError("Checkpoint failed prediction reload parity")
     report = {"parent": parent, "checkpoint": str(out), "sha256": fingerprint(out),
               "initial": initial, "final": final, "reload_parity": True,
+              "training_probe": {"samples": len(train_probe), "initial": initial_train, "final": final_train}
+              if train_probe else None,
               "steps": cfg.train_steps, "train_samples": len(train), "dev_samples": len(dev),
+              "data_strategy": cfg.data_strategy, "data_selection": str(out.parent / "data-selection.json"),
               "parameter_probe_deltas": {n: v for n, v in changes.items() if v > 0},
               "trainable_parameters": sum(p.numel() for _, p in parameters),
               "calibration": "none", "seconds": time.perf_counter() - started}

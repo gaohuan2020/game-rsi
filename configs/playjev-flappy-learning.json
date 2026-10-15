@@ -2,7 +2,7 @@
   "game": "flappy", "backend": "playjev",
   "model": "OmniJev/PlayJev-0.8B", "input_mode": "pixels",
   "device": "cuda:0", "rounds": 1,
-  "collect_steps": 2400, "train_steps": 80, "batch_size": 4,
+  "collect_steps": 1000, "train_steps": 80, "batch_size": 4,
   "learning_rate": 0.00001, "tune_tower": false,
   "eval_episodes": 8, "max_episode_steps": 1000,
   "teacher_mix": 0.25, "epsilon": 0.05,

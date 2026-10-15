@@ -13,14 +13,14 @@ It combines [PlayJev](https://github.com/OmniJev/PlayJev) game environments, tea
 - Ten games: Snake, 2048, Tetris, Pacman, Racer, Invaders, Sokoban, Mario, Floppy Bird, and Breakout.
 - Actual Chromium screenshots or structured game states, native weight updates, and checkpoint prediction checks after reload.
 - Teacher correction with separate training, validation, and game-evaluation seed namespaces.
-- Matched-seed comparisons between champion and candidate, with score-gain, bootstrap confidence, and regression gates.
+- Matched-seed comparisons promote positive average gains by default, with optional strict confidence and regression gates.
 - Separate training and gameplay workers, cached-model game switching, historical experiments, and cancellation. Switching games requests cancellation of ongoing training and RSI evolution.
 - Chinese and English interfaces with persisted language preference. A table accumulates scores before and after training across all experiments for the selected game, with paired gains, confidence intervals, and expandable episode details. Switching games restores that game’s training history or clears the panel if none exists.
 - MJPEG live video and actual intermediate animation frames for Mario and Floppy Bird. The default display target is 30 FPS; observed performance depends on the model and hardware.
 
 Each round and new experiment starts from the most recently promoted weights for the same game, parent model, and input contract. Rejected candidates keep their score records; later training continues from the approved model. After experiment data is cleared, training starts from the selected base model.
 
-Training imitates teacher action distributions. Game rewards are used for evaluation and promotion. The experiment loop adjusts its recipe; this version does not include a research agent that rewrites project code.
+Training imitates teacher action distributions. Scores on training seeds select data; scores on independent evaluation seeds determine promotion. The experiment loop adjusts its recipe; this version does not include a research agent that rewrites project code.
 
 ## Quick start
 
@@ -69,7 +69,18 @@ Structured state and pixels expose different information, so scores across these
 
 Each round registers its configuration and evaluation seeds, collects teacher-labeled trajectories, trains with AdamW and gradient clipping, saves the checkpoint, checks reload parity, and evaluates the candidate on matched game seeds. By default, 25% of collection episodes are teacher-guided. Set `teacher_mix=0` for model-only trajectories with teacher correction.
 
-Promotion requires sufficient paired gain, a positive bootstrap 95% CI lower bound when configured, and no excessive per-episode regression. Rejected candidates remain recorded; the next round reduces the learning rate.
+The default collection budget is **1000 observations per round**. `data_strategy=trajectory` adapts candidate selection and stratified sampling from [MASS Algorithm 3 and Appendix B.2](https://arxiv.org/pdf/2610.12176) to verifiable game outcomes:
+
+- Collect up to three candidates per seed and keep the best two by score gain within the same round, seed, and horizon. Budget-interrupted and teacher-abandoned candidates cannot become elite demonstrations. Their informative teacher corrections can still be used.
+- Filter invalid/uniform teacher labels and identical observation/label pairs within a trajectory. Legacy shards remain usable without invented rankings. Outcomes and provenance never enter model inputs.
+- Reserve at least half the bounded replay buffer for the latest round when history exists. Draw fresh/history rounds with equal probability, then corrections/elite samples with 25%/75% probability, followed by uniform behavior-role and episode sampling. Missing categories fall back to available data.
+- Each separate `seed % 10 == 0` validation seed gets one rollout, without outcome selection or a candidate tournament. Promotion seeds remain protected. Filtering usually leaves fewer training examples than raw observations.
+
+`collect_steps` is the total budget shared by candidates, not a per-candidate multiplier. Collection also bounds individual episode lengths to cover multiple seeds. `data_strategy=uniform` restores the original replay strategy for controlled comparisons. Per-round `data-selection.json` records rankings, exclusions, splits, and actual draws; `episodes.jsonl` stores original outcomes. This adapts data handling rather than reproducing the full multi-agent workflow. Score improvements require paired evaluation.
+
+The score chart includes all experiments for the selected game in cumulative-round order, including rejected candidates. Selecting a training record changes loss and training details while preserving score history. Different experiments can have different configurations, so the chart describes recorded trends.
+
+The default `promotion_rule=positive_gain` promotes a candidate whenever its mean game score exceeds the champion's on matched seeds and step limits. Zero or negative gains retain the champion. Confidence intervals and per-episode regressions remain recorded without blocking positive-gain updates. `promotion_rule=strict` restores relative-gain, confidence, and regression requirements. Historical decisions retain their original rules. Rejected candidates remain recorded; the next round reduces the learning rate.
 
 ## Run experiments
 
@@ -83,10 +94,10 @@ Dashboard experiments appear in the history selector. CLI runs write to `artifac
 
 | Recipe | Backend / Game | Frames | Steps | Batch | Learning rate | Rounds |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `rsi-snake.json` | RSI / Snake | 512 | 80 | 4 | 1e-4 | 3 |
-| `rsi-snake-learning.json` | RSI / Snake | 1024 | 250 | 8 | 1e-3 | 2 |
-| `playjev-snake.json` | PlayJev / Snake | 1024 | 100 | 2 | 1e-5 | 3 |
-| `playjev-flappy-learning.json` | PlayJev / Flappy | 2400 | 80 | 4 | 1e-5 | 1 |
+| `rsi-snake.json` | RSI / Snake | 1000 | 80 | 4 | 1e-4 | 3 |
+| `rsi-snake-learning.json` | RSI / Snake | 1000 | 250 | 8 | 1e-3 | 2 |
+| `playjev-snake.json` | PlayJev / Snake | 1000 | 100 | 2 | 1e-5 | 3 |
+| `playjev-flappy-learning.json` | PlayJev / Flappy | 1000 | 80 | 4 | 1e-5 | 1 |
 
 These recipes use eight evaluation seeds and at most 1000 steps per episode. Outcomes depend on the actual experiment.
 
