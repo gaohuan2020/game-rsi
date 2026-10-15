@@ -4,7 +4,7 @@
   "device": "cuda:0", "rounds": 2,
   "collect_steps": 1024, "train_steps": 250, "batch_size": 8,
   "learning_rate": 0.001, "tune_tower": false,
-  "eval_episodes": 8, "max_episode_steps": 300,
+  "eval_episodes": 8, "max_episode_steps": 1000,
   "teacher_mix": 0.5, "epsilon": 0.05,
   "seed": 17, "min_gain": 0.02, "require_ci": true
 }

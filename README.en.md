@@ -88,7 +88,7 @@ Dashboard experiments appear in the history selector. CLI runs write to `artifac
 | `playjev-snake.json` | PlayJev / Snake | 1024 | 100 | 2 | 1e-5 | 3 |
 | `playjev-flappy-learning.json` | PlayJev / Flappy | 2400 | 80 | 4 | 1e-5 | 1 |
 
-These recipes use eight evaluation seeds and at most 300 steps per episode. Outcomes depend on the actual experiment.
+These recipes use eight evaluation seeds and at most 1000 steps per episode. Outcomes depend on the actual experiment.
 
 ## Understanding a loss plateau
 

@@ -52,6 +52,23 @@ async def main():
         await page.goto('http://127.0.0.1:8092',wait_until='domcontentloaded')
         await page.wait_for_selector('.round-comparison')
         assert await page.locator('.round-comparison').count()==2
+        assert await page.locator('#score-tab').get_attribute('aria-selected')=='true'
+        assert await page.locator('#chart polyline').count()==2
+        positions = {}
+        for name in ('game-panel','decision-panel','experiment-panel','log-panel',
+                     'train-panel','guide-panel','config-panel'):
+            positions[name] = await page.locator('.'+name).bounding_box()
+        assert positions['game-panel']['x'] < positions['train-panel']['x']
+        assert positions['game-panel']['y'] == positions['train-panel']['y']
+        for column in (('game-panel','decision-panel','experiment-panel','log-panel'),
+                       ('train-panel','guide-panel','config-panel')):
+            for before, after in zip(column,column[1:]):
+                assert positions[before]['y']+positions[before]['height'] <= positions[after]['y']
+        assert await page.evaluate("config().game")=='snake', 'Game selector must remain part of the configuration form'
+        assert await page.evaluate("config().max_episode_steps")==1000
+        screenshot=root/'artifacts/qa/compact-layout.png'
+        screenshot.parent.mkdir(parents=True,exist_ok=True)
+        await page.screenshot(path=str(screenshot),full_page=True)
         assert '26.50' in await page.locator('.round-comparison').nth(0).inner_text()
         assert '+25.50' in await page.locator('.comparison-gain').nth(0).inner_text()
         assert '-25.50' in await page.locator('.comparison-gain').nth(1).inner_text()
@@ -70,7 +87,7 @@ async def main():
         await page.reload(wait_until='domcontentloaded')
         await page.wait_for_selector('.round-comparison')
         assert await page.locator('#language-select').input_value()=='en'
-        assert await page.locator('#sidebar').is_visible()
+        assert await page.locator('#run-config').is_visible()
         assert 'After training' in await page.locator('.comparison-table > thead').inner_text()
         await page.select_option('#language-select','zh-CN')
         assert await page.locator('.experiment-panel h2').inner_text()=='每轮进化成绩对比'
@@ -86,7 +103,8 @@ async def main():
         assert await page.locator('#run-state').inner_text()=='Waiting for an experiment'
         await browser.close()
     report={'page_errors':errors,'languages':['zh-CN','en'],'round_comparison':True,'paired_scores':True,
-            'language_persistence':True,'mobile_overflow':False,'game_switch_without_live_worker':True}
+            'language_persistence':True,'mobile_overflow':False,'game_switch_without_live_worker':True,
+            'two_column_layout':True,'external_game_selector':True,'default_episode_steps':1000}
     output=root/'artifacts/qa/ui-features.json';output.parent.mkdir(parents=True,exist_ok=True)
     output.write_text(json.dumps(report,indent=2))
     print(json.dumps(report));assert not errors

@@ -108,7 +108,7 @@ flowchart LR
 | `playjev-snake.json` | Snake / PlayJev | 1024 | 100 | 2 | 1e-5 | 3 |
 | `playjev-flappy-learning.json` | Flappy / PlayJev | 2400 | 80 | 4 | 1e-5 | 1 |
 
-这些配置均使用 8 个评估 seed，每局最多 300 步。学习配方是可复用的起点，具体收益需要以运行结果为准。
+这些配置均使用 8 个评估 seed，每局最多 1000 步。学习配方是可复用的起点，具体收益需要以运行结果为准。
 
 ## 为什么 Loss 可能不下降
 

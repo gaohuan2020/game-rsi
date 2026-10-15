@@ -40,7 +40,7 @@ class RunConfig(BaseModel):
     epsilon: float = Field(0.05, ge=0, le=1)
     teacher_mix: float = Field(0.25, ge=0, le=1)
     eval_episodes: int = Field(8, ge=2, le=64)
-    max_episode_steps: int = Field(300, ge=10, le=10000)
+    max_episode_steps: int = Field(1000, ge=10, le=10000)
     seed: int = Field(17, ge=0, le=100000000)
     min_gain: float = Field(0.02, ge=0, le=1)
     require_ci: bool = True

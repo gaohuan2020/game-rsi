@@ -49,6 +49,7 @@ async def main():
         page.on("pageerror", lambda error: errors.append(str(error)))
         await page.route("**/api/**", route_api)
         await page.goto("http://127.0.0.1:8092", wait_until="domcontentloaded")
+        await page.locator("#loss-tab").click()
         await page.wait_for_selector("#chart polyline")
         await page.evaluate("stream.close()")
         expected = [{"x": (e["round"] - 1) * 70 + e["step"], "y": e["val_loss"],

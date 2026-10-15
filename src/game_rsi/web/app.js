@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const terminal = new Set(['completed', 'stopped', 'failed', 'interrupted']);
 const names = {starting:'正在启动',switching:'正在切换游戏',stopping:'正在停止训练与自进化',loading:'加载冠军模型',loading_candidate:'加载候选模型',collecting:'模型游玩 / 教师标注',training:'更新本地模型权重',saving:'保存与校验 Checkpoint',evaluating:'同种子游戏评估',completed:'本轮实验已完成',failed:'任务失败',stopped:'任务已停止',interrupted:'任务被中断',playing:'实时游戏游玩'};
-let latest = null, archived = null, tab = 'loss', plotPoints = [], lastChart = '', lastLog = '', toastTimer, playPending=false, switchTimer, formInitialized=false;
+let latest = null, archived = null, tab = 'score', plotPoints = [], lastChart = '', lastLog = '', toastTimer, playPending=false, switchTimer, formInitialized=false;
 let lastComparisons = '';
 let lossSeries = 'both', chartSegments = [];
 let trainingGame = null;
@@ -20,8 +20,25 @@ function toast(message, error=false) {
   toastTimer = setTimeout(() => {$('toast').hidden = true;}, error ? 14000 : 5000);
 }
 
-document.body.classList.remove('sidebar-hidden');
-localStorage.removeItem('game-rsi-sidebar-hidden');
+const gameGuides = {
+  snake: ['吃到食物让蛇变长，同时避开墙壁和自身。', '学习寻找食物的安全路线，为蛇身增长保留移动空间。'],
+  '2048': ['移动棋盘，合并相同数字的方块，争取更高得分。', '学习保持大数字的位置、留出空格，并减少无效移动。'],
+  tetris: ['移动和旋转方块，填满整行即可消除；出生位置被堵住时失败。', '学习选择落点、减少空洞、控制堆叠高度，并创造连续消行机会。'],
+  pacman: ['收集豆子和能量豆，避开幽灵追击。', '学习规划收集路线，判断幽灵威胁并利用能量豆脱险。'],
+  racer: ['沿赛道向前行驶，控制方向和速度，避开交通车辆。', '学习提前判断弯道，在行驶距离和碰撞风险之间选择合适速度。'],
+  invaders: ['移动飞船、躲避子弹并射击外星敌人。', '学习瞄准敌人、寻找安全位置，并在进攻时避开弹道。'],
+  sokoban: ['将箱子推到目标位置，全部归位即可过关。', '学习规划推箱顺序，避免将箱子推入无法恢复的死角。'],
+  mario: ['向前探索关卡，跳过障碍并躲避敌人。', '学习选择起跳时机、控制移动节奏，提高向前推进的距离。'],
+  flappy: ['控制小鸟飞行高度，穿过水管之间的空隙。', '学习根据高度和下落速度调整振翅时机，增加通过的水管数。'],
+  breakout: ['移动挡板接住小球，反弹小球击碎砖块。', '学习预测小球落点、调整挡板位置，延长回合并击碎更多砖块。']
+};
+
+function renderGameGuide(game) {
+  const [goal, learning] = gameGuides[game] || gameGuides.snake;
+  $('guide-game').textContent = gameName(game);
+  $('guide-goal').textContent = t(goal);
+  $('guide-learning').textContent = t(learning);
+}
 
 async function api(path, body) {
   const response = await fetch(path, body ? {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)} : {});
@@ -110,6 +127,7 @@ function render(snapshot) {
     }
   }
   const game = $('game').value;
+  renderGameGuide(game);
   if (archived && !snapshot.jobs.some(j=>j.id === archived.job.id) && snapshot.evolution?.job.id !== archived.job.id) {
     archived=null;
     $('history-select').value='latest';
